@@ -1919,6 +1919,656 @@ PRD 定義了 40 個完整使用者故事，分為以下類別：
 
 ---
 
+## 補充細節：關鍵設計決策
+
+### 1. 藍圖與工作區的關係（奧卡姆剃刀決策）
+
+**結論：藍圖即工作區，不需分離**
+
+根據奧卡姆剃刀原則，系統採用最簡設計：
+
+| 概念 | 定義 | 說明 |
+|------|------|------|
+| 藍圖 (Blueprint) | 邏輯容器 = 工作區 | 提供資料隔離的完整工作空間 |
+| 工作區 (Workspace) | **不存在獨立概念** | 藍圖本身就是工作區 |
+
+**設計理由**:
+- **避免過度設計**：藍圖已提供完整的資料隔離與權限控制
+- **減少認知負擔**：用戶只需理解「藍圖」一個概念
+- **簡化實作**：無需維護藍圖與工作區的映射關係
+
+**上下文切換流程**:
+```
+用戶登入 → 選擇組織 → 進入藍圖 → 操作業務模組
+              │           │
+              └─ 組織層上下文  └─ 藍圖層上下文（即工作區）
+```
+
+**如果未來需要擴展**:
+- 藍圖分支 (Branch) 可視為藍圖的子工作區
+- Fork 操作產生獨立藍圖副本給其他組織
+
+---
+
+### 2. 前端狀態管理詳細設計
+
+#### 2.1 Signal Store 完整模板
+
+```typescript
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
+/**
+ * 通用 Signal Store 基礎模板
+ * 遵循奧卡姆剃刀原則：最小化但完整的狀態管理
+ */
+@Injectable({ providedIn: 'root' })
+export class TaskStore {
+  private readonly repository = inject(TaskRepository);
+  private readonly destroyRef = inject(DestroyRef);
+
+  // ==================== Private State ====================
+  // 使用 private signal 封裝內部狀態
+  private readonly _tasks = signal<Task[]>([]);
+  private readonly _selectedTask = signal<Task | null>(null);
+  private readonly _loading = signal(false);
+  private readonly _error = signal<string | null>(null);
+  private readonly _lastUpdated = signal<Date | null>(null);
+
+  // ==================== Public Readonly State ====================
+  // 對外只暴露 readonly 版本，防止外部直接修改
+  readonly tasks = this._tasks.asReadonly();
+  readonly selectedTask = this._selectedTask.asReadonly();
+  readonly loading = this._loading.asReadonly();
+  readonly error = this._error.asReadonly();
+  readonly lastUpdated = this._lastUpdated.asReadonly();
+
+  // ==================== Computed Properties ====================
+  // 衍生狀態使用 computed，自動追蹤依賴
+  readonly pendingTasks = computed(() =>
+    this._tasks().filter(t => t.status === 'pending')
+  );
+
+  readonly completedTasks = computed(() =>
+    this._tasks().filter(t => t.status === 'completed')
+  );
+
+  readonly taskCount = computed(() => this._tasks().length);
+
+  readonly hasError = computed(() => this._error() !== null);
+
+  // 樹狀結構：根任務
+  readonly rootTasks = computed(() =>
+    this._tasks().filter(t => t.parent_id === null)
+  );
+
+  // ==================== Actions ====================
+  
+  /**
+   * 載入藍圖下的所有任務
+   */
+  async loadTasks(blueprintId: string): Promise<void> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    try {
+      const tasks = await this.repository.findByBlueprint(blueprintId);
+      this._tasks.set(tasks);
+      this._lastUpdated.set(new Date());
+    } catch (error) {
+      this._error.set('載入任務失敗，請稍後再試');
+      console.error('[TaskStore] loadTasks error:', error);
+    } finally {
+      this._loading.set(false);
+    }
+  }
+
+  /**
+   * 建立新任務
+   */
+  async createTask(data: CreateTaskDto): Promise<Task | null> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    try {
+      const task = await this.repository.create(data);
+      // 使用 update 方法確保 immutability
+      this._tasks.update(tasks => [...tasks, task]);
+      return task;
+    } catch (error) {
+      this._error.set('建立任務失敗');
+      console.error('[TaskStore] createTask error:', error);
+      return null;
+    } finally {
+      this._loading.set(false);
+    }
+  }
+
+  /**
+   * 更新任務
+   */
+  async updateTask(id: string, data: UpdateTaskDto): Promise<Task | null> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    try {
+      const updated = await this.repository.update(id, data);
+      this._tasks.update(tasks =>
+        tasks.map(t => (t.id === id ? updated : t))
+      );
+      return updated;
+    } catch (error) {
+      this._error.set('更新任務失敗');
+      console.error('[TaskStore] updateTask error:', error);
+      return null;
+    } finally {
+      this._loading.set(false);
+    }
+  }
+
+  /**
+   * 刪除任務（軟刪除）
+   */
+  async deleteTask(id: string): Promise<boolean> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    try {
+      await this.repository.delete(id);
+      this._tasks.update(tasks => tasks.filter(t => t.id !== id));
+      return true;
+    } catch (error) {
+      this._error.set('刪除任務失敗');
+      console.error('[TaskStore] deleteTask error:', error);
+      return false;
+    } finally {
+      this._loading.set(false);
+    }
+  }
+
+  /**
+   * 選擇任務
+   */
+  selectTask(task: Task | null): void {
+    this._selectedTask.set(task);
+  }
+
+  /**
+   * 重置狀態（切換藍圖時呼叫）
+   */
+  reset(): void {
+    this._tasks.set([]);
+    this._selectedTask.set(null);
+    this._loading.set(false);
+    this._error.set(null);
+    this._lastUpdated.set(null);
+  }
+
+  /**
+   * 清除錯誤
+   */
+  clearError(): void {
+    this._error.set(null);
+  }
+
+  // ==================== Realtime Integration ====================
+  
+  /**
+   * 處理 Realtime 事件更新
+   * 注意：需在元件中訂閱 Realtime channel 並呼叫此方法
+   */
+  handleRealtimeUpdate(payload: RealtimePayload): void {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    switch (eventType) {
+      case 'INSERT':
+        this._tasks.update(tasks => [...tasks, newRecord as Task]);
+        break;
+      case 'UPDATE':
+        this._tasks.update(tasks =>
+          tasks.map(t => (t.id === newRecord.id ? (newRecord as Task) : t))
+        );
+        break;
+      case 'DELETE':
+        this._tasks.update(tasks =>
+          tasks.filter(t => t.id !== oldRecord.id)
+        );
+        break;
+    }
+  }
+}
+```
+
+#### 2.2 狀態持久化策略
+
+| 狀態類型 | 儲存位置 | 有效期 | 說明 |
+|----------|----------|--------|------|
+| 認證 Token | `localStorage` | 7 天 | Supabase Auth 自動管理 |
+| 用戶偏好 | `localStorage` | 永久 | 主題、語言、視圖設定 |
+| 藍圖列表快取 | Signal (記憶體) | Session | 切換組織時清除 |
+| 任務資料快取 | Signal (記憶體) | 5 分鐘 | Stale-While-Revalidate |
+| 離線操作佇列 | `IndexedDB` | 直到同步 | 離線操作暫存 |
+
+**持久化實作範例**:
+
+```typescript
+// 用戶偏好持久化服務
+@Injectable({ providedIn: 'root' })
+export class UserPreferencesStore {
+  private readonly STORAGE_KEY = 'user_preferences';
+  
+  private readonly _preferences = signal<UserPreferences>(
+    this.loadFromStorage()
+  );
+  
+  readonly preferences = this._preferences.asReadonly();
+  readonly theme = computed(() => this._preferences().theme);
+  readonly language = computed(() => this._preferences().language);
+
+  updatePreferences(partial: Partial<UserPreferences>): void {
+    this._preferences.update(prefs => {
+      const updated = { ...prefs, ...partial };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }
+
+  private loadFromStorage(): UserPreferences {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    return stored ? JSON.parse(stored) : DEFAULT_PREFERENCES;
+  }
+}
+```
+
+#### 2.3 跨頁面狀態共享
+
+**方案：使用 `providedIn: 'root'` 的 Store 服務**
+
+```typescript
+// 全域 Store 結構
+@Injectable({ providedIn: 'root' })
+export class AccountStore { }  // 帳戶層級，全域共享
+
+@Injectable({ providedIn: 'root' })
+export class BlueprintStore { }  // 藍圖列表，組織內共享
+
+@Injectable({ providedIn: 'root' })
+export class TaskStore { }  // 任務資料，藍圖內共享
+```
+
+**狀態共享層級**:
+
+```
+┌─────────────────────────────────────────────────┐
+│  AccountStore (providedIn: 'root')              │
+│  • currentUser, organizations, permissions      │
+│  • 全域共享，登出時清除                           │
+├─────────────────────────────────────────────────┤
+│  BlueprintStore (providedIn: 'root')            │
+│  • blueprints[], currentBlueprint               │
+│  • 切換組織時清除                                │
+├─────────────────────────────────────────────────┤
+│  TaskStore / DiaryStore / TodoStore             │
+│  • 業務資料快取                                  │
+│  • 切換藍圖時清除                                │
+└─────────────────────────────────────────────────┘
+```
+
+#### 2.4 狀態更新效能優化
+
+**原則：最小化重新渲染**
+
+```typescript
+// ✅ 正確：細粒度 Signal 更新
+this._tasks.update(tasks =>
+  tasks.map(t => (t.id === id ? { ...t, status: newStatus } : t))
+);
+
+// ❌ 錯誤：整體替換觸發所有訂閱者更新
+this._tasks.set([...this._tasks()]);
+```
+
+**效能優化策略**:
+
+| 策略 | 說明 | 適用場景 |
+|------|------|----------|
+| `computed()` 快取 | 衍生狀態自動快取，依賴不變則不重算 | 篩選、排序、統計 |
+| `OnPush` 變更檢測 | 元件僅在 Input 變更時檢查 | 所有元件 |
+| `trackBy` 函數 | 列表渲染優化 | `@for` 迴圈 |
+| Signal 細粒度更新 | 只更新變化的部分 | 單一項目修改 |
+| Debounce 批次更新 | 合併高頻事件 | Realtime 事件處理 |
+
+**Debounce 實作範例**:
+
+```typescript
+// Realtime 事件批次處理
+private pendingUpdates: RealtimePayload[] = [];
+private updateTimer: ReturnType<typeof setTimeout> | null = null;
+
+handleRealtimeEvent(payload: RealtimePayload): void {
+  this.pendingUpdates.push(payload);
+  
+  if (this.updateTimer) {
+    clearTimeout(this.updateTimer);
+  }
+  
+  // 300ms 內的事件批次處理
+  this.updateTimer = setTimeout(() => {
+    this.processBatchUpdates(this.pendingUpdates);
+    this.pendingUpdates = [];
+    this.updateTimer = null;
+  }, 300);
+}
+```
+
+---
+
+### 3. Storage 路徑規劃
+
+**Supabase Storage Bucket 結構**:
+
+```
+storage/
+├── blueprints/                          # 藍圖相關檔案
+│   └── {blueprint_id}/
+│       ├── tasks/                       # 任務附件
+│       │   └── {task_id}/
+│       │       ├── {file_id}.jpg        # 原始檔案
+│       │       └── {file_id}_thumb.jpg  # 縮圖 (200x200)
+│       ├── diaries/                     # 日誌照片
+│       │   └── {diary_id}/
+│       │       ├── {file_id}.jpg
+│       │       └── {file_id}_thumb.jpg
+│       └── files/                       # 一般文件
+│           └── {folder_id}/
+│               └── {file_id}.pdf
+├── avatars/                             # 用戶頭像
+│   └── {account_id}/
+│       ├── original.jpg
+│       └── thumb.jpg                    # 縮圖 (80x80)
+└── organizations/                       # 組織資產
+    └── {org_id}/
+        └── logo.png
+```
+
+**路徑命名規則**:
+
+| 類型 | 路徑模式 | 範例 |
+|------|----------|------|
+| 任務附件 | `blueprints/{bid}/tasks/{tid}/{fid}.{ext}` | `blueprints/abc123/tasks/def456/img001.jpg` |
+| 任務縮圖 | `blueprints/{bid}/tasks/{tid}/{fid}_thumb.{ext}` | `blueprints/abc123/tasks/def456/img001_thumb.jpg` |
+| 日誌照片 | `blueprints/{bid}/diaries/{did}/{fid}.{ext}` | `blueprints/abc123/diaries/ghi789/photo001.jpg` |
+| 一般文件 | `blueprints/{bid}/files/{folder}/{fid}.{ext}` | `blueprints/abc123/files/reports/doc001.pdf` |
+| 用戶頭像 | `avatars/{account_id}/original.{ext}` | `avatars/user123/original.jpg` |
+
+**Storage RLS Policy**:
+
+```sql
+-- 藍圖成員可存取藍圖下的檔案
+CREATE POLICY "blueprint_storage_access"
+ON storage.objects FOR ALL
+USING (
+  bucket_id = 'blueprints'
+  AND is_blueprint_member(
+    (storage.foldername(name))[1]::uuid  -- 提取 blueprint_id
+  )
+);
+
+-- 用戶只能存取自己的頭像
+CREATE POLICY "avatar_access"
+ON storage.objects FOR ALL
+USING (
+  bucket_id = 'avatars'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+```
+
+---
+
+### 4. Realtime 事件詳細規範
+
+#### 4.1 事件格式標準
+
+```typescript
+interface RealtimeEvent {
+  // Supabase Realtime 標準格式
+  schema: 'public';
+  table: string;           // 'tasks' | 'diaries' | 'task_comments' | ...
+  commit_timestamp: string; // ISO 8601
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new: Record<string, any> | null;  // 新資料 (INSERT/UPDATE)
+  old: Record<string, any> | null;  // 舊資料 (UPDATE/DELETE)
+  errors: any | null;
+}
+
+// 應用層事件包裝
+interface AppBroadcastEvent {
+  type: string;           // 'task:updated', 'member:joined', etc.
+  payload: object;        // 事件資料
+  timestamp: string;      // ISO 8601
+  actor_id: string;       // 觸發者 ID
+  idempotency_key: string; // 用於去重的唯一鍵
+}
+```
+
+#### 4.2 事件發送機制
+
+**發送者：PostgreSQL 觸發器（推薦）**
+
+```sql
+-- 觸發器自動發送 Realtime 事件
+-- Supabase 內建支援，無需額外設定
+
+-- 啟用表的 Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
+ALTER PUBLICATION supabase_realtime ADD TABLE diaries;
+ALTER PUBLICATION supabase_realtime ADD TABLE task_comments;
+```
+
+**為什麼選擇觸發器而非應用層**:
+- **保證一致性**：資料變更與事件發送在同一交易中
+- **不會遺漏**：即使直接執行 SQL 也會觸發
+- **效能更佳**：無需額外 API 呼叫
+
+#### 4.3 事件去重與順序保證
+
+**去重策略（前端處理）**:
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class RealtimeService {
+  // 已處理事件的 idempotency key 快取
+  private processedEvents = new Set<string>();
+  private readonly MAX_CACHE_SIZE = 1000;
+
+  handleEvent(event: RealtimeEvent): boolean {
+    const key = this.generateIdempotencyKey(event);
+    
+    // 檢查是否已處理
+    if (this.processedEvents.has(key)) {
+      console.debug('[Realtime] Duplicate event ignored:', key);
+      return false;
+    }
+    
+    // 加入快取
+    this.processedEvents.add(key);
+    
+    // 防止快取無限增長
+    if (this.processedEvents.size > this.MAX_CACHE_SIZE) {
+      const firstKey = this.processedEvents.values().next().value;
+      this.processedEvents.delete(firstKey);
+    }
+    
+    return true;
+  }
+
+  private generateIdempotencyKey(event: RealtimeEvent): string {
+    // 使用 表名 + 主鍵 + 時間戳 作為唯一鍵
+    const recordId = event.new?.id || event.old?.id;
+    return `${event.table}:${recordId}:${event.commit_timestamp}`;
+  }
+}
+```
+
+**順序保證策略**:
+
+| 場景 | 策略 | 說明 |
+|------|------|------|
+| 同一記錄的更新 | 比較 `commit_timestamp` | 忽略較舊的事件 |
+| 跨記錄的操作 | 無強順序保證 | 最終一致性 |
+| 批次操作 | 應用層排序 | 根據 `sort_order` 重排 |
+
+```typescript
+// 確保順序：比較時間戳
+handleTaskUpdate(event: RealtimeEvent): void {
+  const existingTask = this._tasks().find(t => t.id === event.new.id);
+  
+  if (existingTask) {
+    const existingTime = new Date(existingTask.updated_at).getTime();
+    const eventTime = new Date(event.new.updated_at).getTime();
+    
+    // 忽略過期事件
+    if (eventTime < existingTime) {
+      console.debug('[Realtime] Stale event ignored');
+      return;
+    }
+  }
+  
+  // 套用更新
+  this._tasks.update(tasks =>
+    tasks.map(t => (t.id === event.new.id ? event.new : t))
+  );
+}
+```
+
+#### 4.4 需要 Realtime 的資料表
+
+| 資料表 | 啟用 Realtime | 理由 | 訂閱範圍 |
+|--------|--------------|------|----------|
+| `tasks` | ✅ 是 | 多人協作編輯核心 | `blueprint_id = X` |
+| `task_comments` | ✅ 是 | 討論即時更新 | `task_id = X` |
+| `diaries` | ✅ 是 | 日誌狀態同步 | `blueprint_id = X` |
+| `task_acceptances` | ✅ 是 | 驗收狀態即時通知 | `task_id = X` |
+| `issues` | ✅ 是 | 問題狀態追蹤 | `blueprint_id = X` |
+| `notifications` | ✅ 是 | 通知即時推送 | `recipient_id = auth.uid()` |
+| `blueprint_members` | ⚠️ 視需求 | 成員變更較少 | `blueprint_id = X` |
+| `accounts` | ❌ 否 | 變更頻率低 | - |
+| `blueprints` | ❌ 否 | 設定變更頻率低 | - |
+| `checklists` | ❌ 否 | 範本資料穩定 | - |
+| `files` | ❌ 否 | 輪詢或手動刷新 | - |
+
+**訂閱實作範例**:
+
+```typescript
+// 進入藍圖時建立訂閱
+setupRealtimeSubscription(blueprintId: string): RealtimeChannel {
+  const channel = this.supabase.client
+    .channel(`blueprint:${blueprintId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'tasks',
+        filter: `blueprint_id=eq.${blueprintId}`
+      },
+      (payload) => this.taskStore.handleRealtimeUpdate(payload)
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'diaries',
+        filter: `blueprint_id=eq.${blueprintId}`
+      },
+      (payload) => this.diaryStore.handleRealtimeUpdate(payload)
+    )
+    .subscribe();
+
+  return channel;
+}
+
+// 離開藍圖時取消訂閱
+teardownRealtimeSubscription(channel: RealtimeChannel): void {
+  channel.unsubscribe();
+}
+```
+
+---
+
+### 5. 任務與日誌的關係
+
+#### 5.1 概念釐清
+
+| 概念 | 說明 | 關係 |
+|------|------|------|
+| 任務 (Task) | 施工工作項目，有狀態、進度、負責人 | 主體 |
+| 施工日誌 (Diary) | 每日施工記錄，記載工時、天氣、工作摘要 | 每日一份，可關聯多個任務 |
+| 任務附件 | 任務的照片、文件 | 附屬於任務 |
+| 日誌照片 | 日誌的現場照片 | 附屬於日誌 |
+
+#### 5.2 關聯模型
+
+```sql
+-- 日誌與任務的多對多關聯
+CREATE TABLE diary_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  diary_id UUID NOT NULL REFERENCES diaries(id) ON DELETE CASCADE,
+  task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  work_hours DECIMAL(5,2),           -- 此任務在當日的工時
+  notes TEXT,                        -- 此任務在當日的工作備註
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (diary_id, task_id)         -- 同一日誌不能重複關聯同一任務
+);
+```
+
+#### 5.3 業務流程
+
+```
+任務系統                              日誌系統
+=========                            =========
+                                     
+任務建立 ─────────────────────────→ 無直接影響
+    │
+    ▼
+任務執行中 ◄─────── 關聯 ──────────→ 建立日誌 (可選擇關聯進行中的任務)
+    │                                   │
+    │                                   ▼
+    │                               日誌紀錄工時、天氣、摘要
+    │                                   │
+    │                                   ▼
+    │                               上傳日誌照片
+    │                                   │
+    │                                   ▼
+    │                               日誌提交審核 → 審核通過
+    │                                   
+    ▼
+任務完成 ─────────────────────────→ 日誌可記錄任務完成
+    │
+    ▼
+品質驗收 ◄─────────────────────────  驗收需參考日誌記錄
+```
+
+#### 5.4 狀態連動規則
+
+| 任務狀態 | 日誌可執行操作 |
+|----------|----------------|
+| `pending` | 不可關聯（任務尚未開始） |
+| `in_progress` | 可關聯、可記錄工時 |
+| `in_review` | 可關聯、只讀工時 |
+| `completed` | 可關聯（記錄完工日）、只讀 |
+| `cancelled` | 不可關聯 |
+
+**注意事項**:
+- 日誌是**按日期記錄**，每個藍圖每天最多一份
+- 任務是**持續性工作項目**，跨越多天
+- 日誌記錄「當日做了什麼任務」，任務記錄「整體進度」
+- 日誌審核通過後鎖定，關聯的任務工時記錄不可修改
+
+---
+
 ## Recommended Approach
 
 ### 實作優先順序
