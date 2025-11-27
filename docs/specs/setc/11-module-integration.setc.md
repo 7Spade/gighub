@@ -14,6 +14,8 @@
 2. **事件傳遞機制**：領域事件的發布與訂閱
 3. **跨模組搜尋**：統一搜尋入口
 4. **統一時間軸**：整合所有模組活動
+5. **品質驗收整合**：任務驗收流程與日誌關聯
+6. **問題追蹤整合**：缺陷與任務的關聯機制
 
 ### 在系統中的定位
 模組整合作為業務層的協調機制，確保各模組間的無縫協作。
@@ -58,6 +60,28 @@
 - [ ] 日誌可關聯照片檔案
 - [ ] 關聯項目可快速導航
 
+#### INT-004: 品質驗收流程整合
+**作為** 品管人員
+**我想要** 在任務驗收時引用施工日誌
+**以便於** 確保品質依據完整
+
+**驗收標準**：
+- [ ] 驗收時可查閱關聯日誌
+- [ ] 驗收記錄保留日誌參考
+- [ ] 驗收結果同步更新任務狀態
+- [ ] 驗收歷史可追蹤
+
+#### INT-005: 問題追蹤整合
+**作為** 工地主任
+**我想要** 從任務或驗收結果開立問題
+**以便於** 追蹤缺陷處理進度
+
+**驗收標準**：
+- [ ] 可從任務開立問題（缺陷）
+- [ ] 可從驗收不通過開立問題
+- [ ] 問題解決後可觸發重新驗收
+- [ ] 問題狀態與任務狀態連動
+
 ### 優先級與依賴關係
 
 | 優先級 | 功能 | 依賴 |
@@ -65,6 +89,8 @@
 | P1 | 統一搜尋 | 所有業務模組 |
 | P1 | 統一時間軸 | 所有業務模組 |
 | P2 | 跨模組關聯 | 任務、日誌、檔案 |
+| P1 | 品質驗收整合 | 任務、日誌 |
+| P1 | 問題追蹤整合 | 任務、驗收 |
 
 ---
 
@@ -87,9 +113,11 @@ interface DomainEvent {
 // 事件類型
 type EventType =
   | 'task.created' | 'task.updated' | 'task.deleted' | 'task.status_changed'
+  | 'task.acceptance.submitted' | 'task.acceptance.approved' | 'task.acceptance.rejected'
   | 'diary.created' | 'diary.submitted' | 'diary.approved'
   | 'file.uploaded' | 'file.deleted' | 'file.shared'
-  | 'link.created' | 'link.deleted';
+  | 'link.created' | 'link.deleted'
+  | 'issue.created' | 'issue.assigned' | 'issue.resolved' | 'issue.closed';
 ```
 
 ### 資料模型
@@ -152,7 +180,7 @@ Response: {
 }
 
 interface SearchResult {
-  type: 'task' | 'diary' | 'file' | 'link';
+  type: 'task' | 'diary' | 'file' | 'link' | 'issue';
   id: string;
   title: string;
   snippet: string;
@@ -322,6 +350,6 @@ describe('ActivityStore', () => {
 
 ---
 
-**文件版本**: v1.0
+**文件版本**: v1.1
 **最後更新**: 2025-11-28
 **維護者**: 專案架構師

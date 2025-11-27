@@ -241,31 +241,53 @@ it('updateStatus_whenNoPermission_shouldThrowError', () => { ... });
 
 ---
 
-## 附錄：SETC 文件索引
+## 附錄 A：開發理念（KEEP.md 核心原則）
 
-| # | 文件名稱 | 類別 | 優先級 |
-|---|----------|------|--------|
-| 00 | system-overview | 總覽 | P0 (必讀) |
-| 01 | foundation-layer | 基礎層 | P0 |
-| 02 | blueprint-container | 容器層 | P0 |
-| 03 | container-infrastructure | 容器層 | P0 |
-| 04 | angular-project-structure | 前端結構 | P0 |
-| 05 | task-module | 業務模組 | P1 |
-| 06 | diary-module | 業務模組 | P2 |
-| 07 | todo-module | 業務模組 | P2 |
-| 08 | file-module | 業務模組 | P2 |
-| 09 | link-module | 業務模組 | P3 |
-| 10 | dashboard-module | 業務模組 | P3 |
-| 11 | module-integration | 整合 | P3 |
-| 12 | database-schema | 資料庫 | P0 |
-| 13 | security-permissions | 安全 | P0 |
-| 14 | realtime-sync | 技術 | P2 |
-| 15 | testing-strategy | 測試 | P1 |
-| 16 | performance-monitoring | 技術 | P2 |
-| 17 | deployment-ops | 維運 | P3 |
+### 奧卡姆剃刀原則 (Occam's Razor Principle)
+- **保持簡單**：避免不必要的複雜度
+- **功能最小化**：只做必要功能，避免功能膨脹
+- **易於擴展**：模組可靈活擴展與延伸，但不預先實現
+- **避免冗餘**：消除重複功能與資料以降低維護成本
+
+### 企業標準 (Enterprise Standard)
+- 雖然簡潔但符合企業級品質要求
+- 適合生產環境的企業級標準與可運維性
+- 遵循企業級規範和最佳實務
+
+### 零認知開發 (Zero Cognitive Development)
+- 降低開發者認知負擔
+- 簡化使用介面與 API
+- 程式碼應自我解釋，減少閱讀負擔
+
+### 架構核心概念
+- **藍圖是邏輯容器**：藍圖負責承載業務邏輯與邊界，提供資料隔離的工作空間
+- **任務是主核心模組**：任務模組為系統主要功能單元，其他模組應以任務為依賴中心
+- **上下文層層傳遞**：上下文訊息以明確界面逐層傳遞，避免跨層依賴
 
 ---
 
-**文件版本**: v1.0
+## 附錄 B：SETC 文件索引
+
+| # | 文件名稱 | 說明 | 優先級 |
+|---|----------|------|--------|
+| 00 | system-overview | 系統架構總覽 | P0 (必讀) |
+| 01 | foundation-layer | 基礎層：帳戶+組織+權限 | P0 |
+| 02 | blueprint-container | 容器層：藍圖系統核心 | P0 |
+| 03 | container-infrastructure | 容器層：12項基礎設施 | P0 |
+| 04 | angular-project-structure | Angular 專案結構對應 | P0 |
+| 05 | task-module | 工項模組（含驗收機制） | P1 |
+| 06 | diary-module | 日誌模組 | P2 |
+| 07 | todo-module | 待辦模組（五態分類） | P2 |
+| 08 | file-module | 檔案模組 | P2 |
+| 09 | link-module | 連結模組 | P3 |
+| 10 | dashboard-module | 儀表板模組 | P3 |
+| 11 | module-integration | 模組整合與關聯 | P2 |
+
+> **注意**：資料庫設計、安全權限、即時同步、測試策略、效能監控、部署維運等詳細技術規格，
+> 請參考 `docs/architecture/` 與 `docs/specs/` 中的專門文件。本 SETC 系列聚焦於模組級規範。
+
+---
+
+**文件版本**: v1.1
 **最後更新**: 2025-11-28
 **維護者**: 專案架構師

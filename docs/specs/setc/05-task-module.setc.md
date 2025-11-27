@@ -93,6 +93,40 @@
 | P2 | 進度計算 | 任務樹狀結構 |
 | P2 | 任務驗收 | 任務狀態、檢查清單 |
 
+### 品質驗收機制
+
+#### 驗收流程
+
+```
+任務完成 → 日誌可提報 → 提報後可 QA → QA 完成 → 驗收
+  [DONE]     [REPORTED]    [QA_PENDING]  [QA_PASSED]  [ACCEPTED]
+                                ↓
+                          [QA_FAILED] → 問題開立
+```
+
+#### 驗收結果
+
+| 結果 | 英文 | 狀態碼 | 說明 |
+|------|------|--------|------|
+| 待驗收 | Pending | `pending` | 等待驗收 |
+| 通過 | Passed | `passed` | 驗收合格 |
+| 不通過 | Failed | `failed` | 驗收不合格，需改善 |
+| 有條件通過 | Conditional | `conditional` | 有附帶條件的通過 |
+
+#### 驗收使用者故事
+
+**TASK-006: 任務驗收**  
+**作為** 品管人員  
+**我想要** 對已完成任務進行驗收  
+**以便於** 確認工項品質符合規範
+
+**驗收標準**：
+- [ ] 可對 completed 狀態任務發起驗收
+- [ ] 可選擇驗收檢查清單
+- [ ] 可記錄驗收結果與備註
+- [ ] 驗收不通過可開立問題
+- [ ] 驗收歷史可追蹤
+
 ---
 
 ## 3. 技術設計
@@ -156,6 +190,49 @@ CREATE TABLE task_attachments (
 
 CREATE INDEX idx_task_attachments_task_id ON task_attachments(task_id);
 CREATE INDEX idx_task_attachments_file_id ON task_attachments(file_id);
+```
+
+**task_acceptances（任務驗收）**:
+```sql
+CREATE TABLE task_acceptances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  checklist_id UUID REFERENCES checklists(id),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'passed', 'failed', 'conditional')),
+  inspector_id UUID NOT NULL REFERENCES accounts(id),
+  inspection_date DATE NOT NULL,
+  notes TEXT,
+  conditions TEXT,  -- 有條件通過的附帶條件
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_task_acceptances_task_id ON task_acceptances(task_id);
+CREATE INDEX idx_task_acceptances_status ON task_acceptances(status);
+```
+
+**checklists（檢查清單模板）**:
+```sql
+CREATE TABLE checklists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  blueprint_id UUID NOT NULL REFERENCES blueprints(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_template BOOLEAN DEFAULT false,
+  created_by UUID NOT NULL REFERENCES accounts(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE checklist_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  checklist_id UUID NOT NULL REFERENCES checklists(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0,
+  is_required BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 ```
 
 ### API 設計
@@ -509,14 +586,24 @@ CREATE POLICY "tasks_delete" ON tasks
 - [ ] 批次操作
 - [ ] 篩選與搜尋
 
-### 階段四：整合功能（P3）
+### 階段四：驗收整合（P2）
+- [ ] checklists 資料表建立
+- [ ] task_acceptances 資料表建立
+- [ ] 驗收 RLS 政策設定
+- [ ] AcceptanceRepository 實作
+- [ ] AcceptanceStore 實作
+- [ ] 驗收表單元件開發
+- [ ] 驗收歷史檢視
+
+### 階段五：模組整合（P3）
 - [ ] 任務驗收流程
 - [ ] 與日誌模組整合
 - [ ] 與待辦模組整合
+- [ ] 與問題追蹤整合
 - [ ] 時間軸整合
 
 ---
 
-**文件版本**: v1.0
+**文件版本**: v1.1
 **最後更新**: 2025-11-28
 **維護者**: 模組負責人
