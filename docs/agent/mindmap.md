@@ -2,6 +2,9 @@
 title: Agent Mindmap
 status: draft
 created: 2025-11-27
+owners: []
+progress: 0
+due: null
 ---
 
 # Agent / Copilot Mindmap（思維導圖骨架）
@@ -65,6 +68,29 @@ Agent Mindmap
 註記
 -
 - 這是初始骨架，建議以 iterative 方式補充細節並針對每項 node 拆解成可執行任務。
+
+**完成判準（Definition of Done）**
+-
+- `status` 欄位更新為 `done` 並由 Agent Owner 核准。
+- mindmap 圖檔（Mermaid / draw.io）已放入 `docs/agent/assets/` 並與本文連結。
+- 每個主要節點已拆成至少一個 Issue 或 Task，並有 owner 與 acceptance checklist。
+
+**Acceptance Checklist 範本（Agent）**
+
+- [ ] Mindmap 圖檔已產出並檢視
+- [ ] 各 Agent 角色列出 capabilities 與 acceptance criteria
+- [ ] Prompt / Blueprint 管理規範已形成草案並審查
+- [ ] CI 驗證（blueprint schema / prompt lint）方案提出
+- [ ] 需要的文件（運作手冊 / runbook）已建立
+
+**進度欄位說明（Frontmatter usage）**
+- `owners`: Agent 負責人（GitHub username）
+- `progress`: 0~100 的整數或已完成 node 的比率
+- `due`: 可選，ISO 日期或 null
+
+**驗證證據（Proof）**
+- 在 PR 或 Issue 中附上圖檔、blueprint 範例、prompt 範本或 CI 測試結果的連結。
+
 # 🧠 AI Agent 思維導圖
 
 > **目的**: 提供 AI Agent 決策思維流程，確保開發一致性和程式碼品質

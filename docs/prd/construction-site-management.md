@@ -2,6 +2,9 @@
 title: 施工現場管理（Construction Site Management）
 status: draft
 created: 2025-11-27
+owners: []
+progress: 0
+due: null
 ---
 
 # 施工現場管理 — 產品需求概要 (PRD)
@@ -81,6 +84,36 @@ created: 2025-11-27
 註記
 -
 - 此文件為骨架（living document），會隨需求討論與設計調整持續更新。請在每次 sprint planning 後更新本文件的進度區塊。
+
+**完成判準（Definition of Done）**
+-
+- `status` 欄位更新為 `done`（由功能負責人或 reviewer 在確認所有條件後更新）。
+- 所有 Acceptance Checklist 項目已通過（見下方範本）。
+- 有關功能的 PR 已合併且 CI（lint、unit tests、E2E）全部綠燈。
+- 相關文件（API contract / migrations / 操作說明）已更新並連結於本文件的「後續步驟」或 Issue 中。
+- 如有 UI 變更，已提供畫面截圖或 Playwright 測試證明。
+
+**Acceptance Checklist 範本（請複製到每個 Issue 或 PR）**
+
+- [ ] 功能需求與使用案例已在 PRD 中確認
+- [ ] Backend: 所需資料表 / 欄位 migration 已建立並 review
+- [ ] API contract（OpenAPI 或 Postgres schema）已確認並有測試範例
+- [ ] Frontend: UI 已實作且通過 manual QA
+- [ ] Unit tests：覆蓋主要邏輯（Service / Repository）
+- [ ] E2E tests：關鍵流程（建立日誌、上傳照片、審核）可通過
+- [ ] RLS 與授權驗證（至少一個正向與一個負向測試）
+- [ ] Accessibility：關鍵表單與檢視通過基本無障礙檢查（鍵盤操作 + 標籤）
+- [ ] 運維/監控：需有基本監控指標或 log 設定（若有）
+- [ ] 文件：更新 PRD、設計圖、使用說明或 release note
+
+**進度欄位說明（Frontmatter usage）**
+- `owners`: 指定負責人 (GitHub username)
+- `progress`: 整數 0~100，或以 checklist/Issue 狀態來計算
+- `due`: 可選，ISO 日期或 null
+
+**驗證證據（Proof）**
+- 對於每項被 tick 的項目，請在 PR/Issue 中提供一個連結或附件說明（例如：PR 編號、測試報表、截圖、Playwright run 的 URL）。
+
 # PRD: 工地施工進度追蹤管理系統
 
 ## 1. 產品概述

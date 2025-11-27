@@ -2,6 +2,9 @@
 title: 系統架構總覽 (System Architecture)
 status: draft
 created: 2025-11-27
+owners: []
+progress: 0
+due: null
 ---
 
 # 系統架構總覽
@@ -75,6 +78,33 @@ created: 2025-11-27
 註記
 -
 - 本文件為起始架構草案，請以 iterative 方式補齊每個區塊的細節，並在 PR 中補上圖表與範例。 
+
+**完成判準（Definition of Done）**
+-
+- `status` 更新為 `done` 並由架構負責人或 reviewer 核准。
+- 基本架構圖（System Context Diagram、Component Diagram）已加入 `docs/architecture/assets/`，並在 PR 中檢視。
+- 主要整合點（Supabase、CDN、Observability）有明確的部署或設計決議與替代方案。
+- 所有非功能性需求（NFRs）有明確指標與可執行的驗證步驟（例如 SLO/SLA、目標延遲）。
+- 若需要變更 infra/配置，已產出運維 runbook 或部署腳本草案。
+
+**Acceptance Checklist 範本（Architecture）**
+
+- [ ] System Context Diagram 已完成並審查
+- [ ] Component Diagram 與資料流已詳細列出
+- [ ] Integration points 與契約（Auth/Storage/API）已確認
+- [ ] NFR 指標與驗證方法已列出（可用性、延遲、可擴展）
+- [ ] 安全舉措（RLS、CSP、Secrets 管理）有合適設計
+- [ ] Observability（Logging / Metrics / Traces）設計草案完成
+- [ ] 運維與部署策略有初步方案（CDN、Hosting、Backup）
+
+**進度欄位說明（Frontmatter usage）**
+- `owners`: 架構負責人（GitHub username）
+- `progress`: 0~100 的整數，或以已完成的 checklist 項目數計算
+- `due`: 可選，ISO 日期或 null
+
+**驗證證據（Proof）**
+- 在 PR 或 Issue 中附上圖表、部署腳本、測試報表或決議記錄連結。
+
 # 📐 企業級施工進度追蹤管理系統 - 完整架構設計圖
 
 
