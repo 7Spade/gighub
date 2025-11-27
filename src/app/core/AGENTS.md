@@ -95,6 +95,44 @@ export enum ContextType {
 }
 ```
 
+### 3.4 認證流程實作指引
+
+**Step 1: Supabase Auth 事件監聽**
+```typescript
+// AuthContextService 在建構子中初始化監聽
+this.supabaseService.getClient().auth.onAuthStateChange((event, session) => {
+  switch (event) {
+    case 'SIGNED_IN':
+      // 更新內部 Signal 狀態
+      this._authState.set({ status: 'authenticated', user: session.user, ... });
+      // 載入工作區資料
+      this.initializeWorkspace(session.user.id);
+      break;
+    case 'SIGNED_OUT':
+      this.reset();
+      break;
+  }
+});
+```
+
+**Step 2: @delon/auth Token 同步**
+```typescript
+// 在 app.config.ts 中配置
+provideHttpClient(withInterceptors([
+  authSimpleInterceptor,  // 自動注入 Token
+  defaultInterceptor
+])),
+provideAuth(),  // 提供 TokenService
+```
+
+**Step 3: ACL 權限設定**
+```typescript
+// 在元件中使用
+<button *aclIf="'admin'">管理功能</button>
+```
+
+**詳細實作參考**：`core/services/auth-context.service.ts`
+
 ---
 
 ## 四、基礎設施 (infra/)

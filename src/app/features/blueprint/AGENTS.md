@@ -210,9 +210,11 @@ export interface IBlueprintRepository {
   selector: 'app-blueprint-shell',
   standalone: true,
   imports: [...SHARED_IMPORTS, BlueprintListComponent, TaskListComponent],
-  providers: [BlueprintStore, TaskStore, DiaryStore, TodoStore],
+  // ✅ 在 Shell 層級提供需要的 Stores
+  // 注意：只提供當前 Shell 實際使用的 Stores
+  providers: [BlueprintStore, TaskStore],
   template: `
-    <page-header [title]="'Blueprint 管理'" />
+    <page-header [title]="'蓍圖管理'" />
 
     <nz-card>
       @if (blueprintStore.loading()) {

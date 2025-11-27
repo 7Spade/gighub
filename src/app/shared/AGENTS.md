@@ -15,6 +15,23 @@
 - 工具函數
 - **統一導入模組** (`shared-imports.ts`)
 
+### 1.1 Shared Services vs Core Services 區分
+
+| 類型 | 位置 | 註冊方式 | 用途 |
+|------|------|----------|------|
+| **Core Services** | `core/services/` | `providedIn: 'root'` | 全局單例，應用程式生命週期 |
+| **Shared Services** | `shared/services/` | 按需提供或功能層級 | 可實例化多次，功能特定 |
+
+**Core Services 範例**：
+- `AuthContextService` - 全局認證狀態
+- `I18NService` - 全局國際化
+- `StartupService` - 應用程式啟動
+
+**Shared Services 範例**：
+- `AccountService` - 帳戶 CRUD 操作
+- `OrganizationService` - 組織 CRUD 操作
+- `MenuManagementService` - 菜單管理操作
+
 ---
 
 ## 二、目錄結構
@@ -355,7 +372,7 @@ export * from './pipes';
 
 ```
 shared/ 可以依賴：
-├── core/          # ✅ 核心服務
+├── core/          # ✅ 核心服務 (見下方說明)
 ├── @angular/*
 ├── @delon/*
 ├── ng-zorro-antd
@@ -366,6 +383,25 @@ shared/ 不可依賴：
 ├── routes/        # ❌
 └── features/      # ❌
 ```
+
+### 11.3 Shared 依賴 Core 的架構說明
+
+> **重要**：本專案採用「核心層作為基礎設施」的架構模式
+
+傳統分層架構中，下層不應依賴上層。但本專案 `core/` 定位為：
+
+```
+core/ = 基礎設施層 (Infrastructure Layer)
+├── 提供全局單例服務
+├── 提供 Supabase 整合
+├── 提供認證狀態
+└── 提供 HTTP 攚截器
+```
+
+因此 `shared/` 依賴 `core/` 是合理的，因為：
+1. `core/` 提供基礎設施，不是業務邏輯
+2. `shared/` 的基礎元件需要使用認證上下文 (`AuthContextService`)
+3. 依賴流向：`features/` → `shared/` → `core/` → 外部套件
 
 ---
 

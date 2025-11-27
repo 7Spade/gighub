@@ -174,13 +174,19 @@ export class BlueprintStore {
 
 ### 4.1 Shell 元件 (Smart Components)
 
+**Store 提供最佳實踐**：
+- ✅ 只在 Shell 層級提供實際使用的 Stores
+- ✅ 避免提供未使用的 Stores（浪費實例化）
+- ✅ 子元件可透過路由懶載入提供其他 Stores
+
 ```typescript
 // features/blueprint/shell/blueprint-shell/blueprint-shell.component.ts
 @Component({
   selector: 'app-blueprint-shell',
   standalone: true,
   imports: [...SHARED_IMPORTS, BlueprintListComponent],
-  providers: [BlueprintStore],  // Store 提供在 Shell 層級
+  // ✅ 只提供當前 Shell 需要的 Store
+  providers: [BlueprintStore],
   template: `
     <page-header [title]="'Blueprint 管理'" />
 
