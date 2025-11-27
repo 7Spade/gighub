@@ -2,6 +2,23 @@
 
 This file provides repository-level context and instructions for GitHub Copilot when working in this codebase.
 
+## 📚 開發指南文件 (Development Guidelines)
+
+本專案的開發理念與規範來自 `KEEP.md`，已整理為以下指引文件，Copilot 將自動套用：
+
+| 指引文件 | 說明 | 適用範圍 |
+|----------|------|----------|
+| `gighub-core-principles.instructions.md` | 核心開發理念（奧卡姆剃刀、功能最小化） | 所有檔案 |
+| `gighub-angular-development.instructions.md` | Angular 20 開發實踐（Standalone、Signals） | `.ts`, `.html`, `.less` |
+| `gighub-architecture-layers.instructions.md` | 三層架構決策（Foundation/Container/Business） | `.ts` |
+| `gighub-supabase-practices.instructions.md` | Supabase 開發規範（Repository 模式、RLS） | `.ts`, `.sql` |
+| `gighub-domain-concepts.instructions.md` | 工地領域概念（任務系統、施工日誌） | 所有檔案 |
+| `gighub-security-quality.instructions.md` | 安全與品質規範（測試、安全） | 所有檔案 |
+
+> 這些指引文件位於 `.github/instructions/` 目錄，會根據編輯的檔案類型自動載入。
+
+---
+
 ## Project Overview
 
 This is an Angular 20 enterprise application scaffold based on the **ng-alain** framework, using **ng-zorro-antd** component library and **@delon** business component packages.
@@ -179,3 +196,27 @@ The project integrates with Supabase for backend services. Configuration and mig
 - [ng-zorro-antd Documentation](https://ng.ant.design)
 - [@delon Packages](https://github.com/ng-alain/delon)
 - [Supabase Documentation](https://supabase.com/docs)
+
+---
+
+## 📁 相關文件結構 (Related Documentation)
+
+```
+.github/
+├── copilot-instructions.md          # 本文件（Copilot 全域指引）
+├── copilot/                          # Copilot 擴展配置
+│   ├── copilot-instructions.md      # Copilot 行為規範
+│   ├── architecture-rules.md        # 架構決策規則
+│   ├── constraints.md               # 系統約束與反模式
+│   ├── domain-glossary.md           # 領域專有名詞
+│   └── styleguide.md                # 程式風格指南
+└── instructions/                     # 自動套用的指引文件
+    ├── gighub-core-principles.instructions.md
+    ├── gighub-angular-development.instructions.md
+    ├── gighub-architecture-layers.instructions.md
+    ├── gighub-supabase-practices.instructions.md
+    ├── gighub-domain-concepts.instructions.md
+    └── gighub-security-quality.instructions.md
+```
+
+> **原始來源**: 所有開發理念均源自 `KEEP.md` 專案關鍵詞清單
