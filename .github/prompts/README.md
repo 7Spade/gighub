@@ -165,16 +165,22 @@
 
 ## 檔案統計
 
-- **總檔案數**: 48 個（47 個 `.prompt.md` + 1 個 `README.md`）
-- **提示檔案數**: 47 個
+- **總檔案數**: 70 個（69 個 `.prompt.md` + 1 個 `README.md`）
+- **提示檔案數**: 69 個
 
 ---
 
 ## 維護記錄
 
+- **2025-11-27**: 從 awesome-copilot 新增 22 個 prompts
+  - 新增測試類：javascript-typescript-jest, playwright-generate-test, playwright-explore-website, breakdown-test
+  - 新增 SQL/資料庫類：sql-code-review, sql-optimization
+  - 新增文件類：documentation-writer, add-educational-comments, update-oo-component-documentation, create-technical-spike
+  - 新增 Git 工作流程類：conventional-commit, git-flow-branch-creator, my-issues, my-pull-requests
+  - 新增 DevOps 類：multi-stage-dockerfile
+  - 新增產生器類：generate-custom-instructions-from-codebase, typescript-mcp-server-generator, create-llms, update-llms
+  - 新增工具類：shuffle-json-data, update-markdown-file-index, repo-story-time
 - **2025-11-26**: 更新 README 以反映實際存在的檔案，移除不存在的提示引用
-  - 實際檔案：47 個 `.prompt.md` 檔案
-  - 移除：不存在的提示檔案引用（documentation-writer, update-oo-component-documentation, add-educational-comments, create-technical-spike, breakdown-test, my-issues, my-pull-requests, git-flow-branch-creator, conventional-commit, playwright-generate-test, playwright-explore-website, sql-optimization, sql-code-review, write-coding-standards-from-file, generate-custom-instructions-from-codebase, multi-stage-dockerfile, create-llms, update-llms, repo-story-time, shuffle-json-data, update-markdown-file-index, javascript-typescript-jest, typescript-mcp-server-generator, mkdocs-translations）
 - **2025-11-25**: 從 awesome-copilot 複製有價值的 prompts
 - **2025-11-23**: 初始化提示目錄
 

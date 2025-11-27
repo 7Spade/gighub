@@ -166,16 +166,20 @@
 
 ## 檔案統計
 
-- **總檔案數**: 32 個（30 個 `.agent.md` + 1 個 `0-ng-governance-v1.md` + 1 個 `README.md`）
-- **代理檔案數**: 30 個
+- **總檔案數**: 51 個（49 個 `.agent.md` + 1 個 `0-ng-governance-v1.md` + 1 個 `README.md`）
+- **代理檔案數**: 49 個
 
 ---
 
 ## 維護記錄
 
+- **2025-11-27**: 從 awesome-copilot 新增 19 個 agents
+  - 新增 TDD 工作流程：tdd-red.agent.md, tdd-green.agent.md, tdd-refactor.agent.md
+  - 新增架構：arch.agent.md, api-architect.agent.md, adr-generator.agent.md
+  - 新增程式碼品質：address-comments.agent.md, code-tour.agent.md, gilfoyle.agent.md, tech-debt-remediation-plan.agent.md
+  - 新增專家：typescript-mcp-expert.agent.md, expert-react-frontend-engineer.agent.md, expert-nextjs-developer.agent.md, software-engineer-agent-v1.agent.md
+  - 新增安全與文件：accessibility.agent.md, stackhawk-security-onboarding.agent.md, technical-content-evaluator.agent.md, lingodotdev-i18n.agent.md
+  - 新增工具：simple-app-idea-generator.agent.md
 - **2025-11-26**: 更新 README 以反映實際存在的檔案，移除不存在的代理引用
-  - 實際檔案：30 個 `.agent.md` 檔案 + 1 個規範文件
-  - 移除：不存在的代理檔案引用（arch, api-architect, adr-generator, hlbpa, wg-code-alchemist, wg-code-sentinel, tech-debt-remediation-plan, gilfoyle, tdd-red, tdd-green, tdd-refactor, accessibility, search-ai-optimization-expert, code-tour, technical-content-evaluator, address-comments, typescript-mcp-expert, gpt-5-beast-mode, software-engineer-agent-v1, blueprint-mode-codex, simple-app-idea-generator）
-  - 新增：`declarative-agents-architect.agent.md`, `monday-bug-fixer.agent.md`
 - **2025-11-25**: 從 awesome-copilot 複製有價值的 agents
 - **2025-11-23**: 移除不適用的代理，保留最佳化的 ng-alain 專用代理

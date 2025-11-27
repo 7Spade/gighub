@@ -73,12 +73,21 @@
 
 ## 檔案統計
 
-- **總檔案數**: 15 個（14 個指令檔案 + 1 個 `README.md`）
-- **指令檔案數**: 14 個
+- **總檔案數**: 33 個（32 個指令檔案 + 1 個 `README.md`）
+- **指令檔案數**: 32 個
 
 ---
 
 ## 維護記錄
 
+- **2025-11-27**: 從 awesome-copilot 新增 18 個 instructions
+  - 新增可訪問性：a11y.instructions.md
+  - 新增效能與安全性：performance-optimization.instructions.md, security-and-owasp.instructions.md
+  - 新增 CI/CD：github-actions-ci-cd-best-practices.instructions.md, containerization-docker-best-practices.instructions.md, kubernetes-deployment-best-practices.instructions.md, devops-core-principles.instructions.md
+  - 新增測試：playwright-typescript.instructions.md, nodejs-javascript-vitest.instructions.md
+  - 新增開發流程：spec-driven-workflow-v1.instructions.md, task-implementation.instructions.md, tasksync.instructions.md
+  - 新增程式碼品質：object-calisthenics.instructions.md
+  - 新增 TypeScript MCP：typescript-mcp-server.instructions.md
+  - 新增文件：markdown.instructions.md, memory-bank.instructions.md, localization.instructions.md, collections.instructions.md
 - **2025-11-26**: 建立完整的 README 文件，列出所有指令檔案
 

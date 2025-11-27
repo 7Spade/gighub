@@ -14,6 +14,7 @@
 |----------|------|----------|
 | `awesome-copilot.md` | Awesome Copilot 資源集合 | 精選的 GitHub Copilot 相關資源 |
 | `database-data-management.md` | 資料庫與資料管理 | 資料庫操作、資料管理相關資源 |
+| `devops-oncall.md` | DevOps On-Call | DevOps 待命與事件處理資源 |
 | `edge-ai-tasks.md` | Edge AI 任務 | Edge AI 相關任務與資源 |
 | `frontend-web-dev.md` | 前端網頁開發 | 前端開發相關資源 |
 | `partners.md` | 合作夥伴資源 | 合作夥伴提供的 Copilot 資源 |
@@ -21,17 +22,22 @@
 | `security-best-practices.md` | 安全性最佳實踐 | 安全性相關的最佳實踐資源 |
 | `technical-spike.md` | 技術驗證 | 技術驗證與研究相關資源 |
 | `testing-automation.md` | 測試自動化 | 測試自動化相關資源 |
+| `typescript-mcp-development.md` | TypeScript MCP 開發 | TypeScript MCP 伺服器開發資源 |
 
 ---
 
 ## 檔案統計
 
-- **總檔案數**: 10 個（9 個集合檔案 + 1 個 `README.md`）
-- **集合檔案數**: 9 個
+- **總檔案數**: 16 個（12 個集合描述檔 + 3 個 `.collection.yml` + 1 個 `README.md`）
+- **集合描述檔數**: 12 個
+- **YAML 配置檔數**: 3 個
 
 ---
 
 ## 維護記錄
 
+- **2025-11-27**: 從 awesome-copilot 新增 2 個 collections
+  - 新增：typescript-mcp-development.collection.yml, typescript-mcp-development.md
+  - 新增：devops-oncall.collection.yml, devops-oncall.md
 - **2025-11-26**: 建立完整的 README 文件，列出所有集合檔案
 
