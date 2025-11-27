@@ -35,19 +35,5 @@
     "*.json": "jsonc",
     ".prettierrc": "jsonc"
   },
-  "typescript.referencesCodeLens.enabled": true,
-      "github.copilot.chat.customOAIModels": {
-        "allowedModels": [
-            "gpt-4o",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-codex",
-            "gpt-5.1",
-            "gpt-5.1-codex",
-            "gpt-5.1-codex-mini"
-        ]
-        
-    }
-
-  
+  "typescript.referencesCodeLens.enabled": true
 }
