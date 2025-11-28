@@ -146,12 +146,35 @@ export class TaskListComponent implements OnInit {
           return;
         }
 
+        // Get current user's account_id for RLS compliance
+        // RLS policy requires tenant_id = get_user_account_id() for user-type workspaces
+        const { data: { user } } = await client.auth.getUser();
+        if (!user) {
+          this.message.error('請先登入');
+          return;
+        }
+
+        const { data: userAccount } = await client
+          .from('accounts')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .eq('type', 'User')
+          .single();
+
+        if (!userAccount) {
+          this.message.error('找不到使用者帳戶');
+          return;
+        }
+
+        // Use current user's account_id as tenant_id for RLS compliance
+        const tenantId = blueprint.owner_type === 'user' ? userAccount.id : blueprint.owner_id;
+
         const { data: newWorkspace, error: createError } = await client
           .from('workspaces')
           .insert({
             blueprint_id: blueprintId,
             name: `${blueprint.name} - 工作區`,
-            tenant_id: blueprint.owner_id,
+            tenant_id: tenantId,
             tenant_type: blueprint.owner_type,
             status: 'active'
           })
