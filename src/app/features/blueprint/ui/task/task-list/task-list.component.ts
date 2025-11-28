@@ -14,6 +14,7 @@ import { SHARED_IMPORTS } from '@shared';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalService } from 'ng-zorro-antd/modal';
 import { NzTreeViewModule } from 'ng-zorro-antd/tree-view';
+import { SupabaseService } from '@core';
 
 import { TaskStore } from '../../../data-access';
 import { TaskModel, TaskViewMode, CreateTaskRequest, UpdateTaskRequest } from '../../../domain';
@@ -39,6 +40,7 @@ export class TaskListComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly modal = inject(NzModalService);
   private readonly message = inject(NzMessageService);
+  private readonly supabase = inject(SupabaseService);
 
   /** Reference to task form template */
   @ViewChild('taskFormTpl', { static: true }) taskFormTpl!: TemplateRef<object>;
@@ -53,6 +55,7 @@ export class TaskListComponent implements OnInit {
   readonly viewMode = signal<TaskViewMode>('tree');
   readonly searchTerm = signal<string>('');
   readonly blueprintId = signal<string>('');
+  readonly workspaceId = signal<string>('');
 
   /** Form state for create/edit modal */
   readonly editingTask = signal<TaskModel | null>(null);
@@ -106,12 +109,75 @@ export class TaskListComponent implements OnInit {
       const blueprintId = params['blueprintId'];
       if (blueprintId) {
         this.blueprintId.set(blueprintId);
-        this.loadTasks(blueprintId);
+        this.initializeWorkspaceAndLoadTasks(blueprintId);
       }
     });
   }
 
-  /** Load tasks for the given workspace/blueprint */
+  /** Initialize workspace for blueprint and load tasks */
+  private async initializeWorkspaceAndLoadTasks(blueprintId: string): Promise<void> {
+    try {
+      // First, check if a workspace exists for this blueprint
+      const { data: existingWorkspace, error: fetchError } = await this.supabase.client
+        .from('workspaces')
+        .select('id')
+        .eq('blueprint_id', blueprintId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Failed to fetch workspace:', fetchError);
+        this.message.error('載入工作區失敗');
+        return;
+      }
+
+      let workspaceId: string;
+
+      if (existingWorkspace) {
+        // Use existing workspace
+        workspaceId = existingWorkspace.id;
+      } else {
+        // Create a new workspace for this blueprint
+        const { data: blueprint } = await this.supabase.client
+          .from('blueprints')
+          .select('name, owner_id, owner_type')
+          .eq('id', blueprintId)
+          .single();
+
+        if (!blueprint) {
+          this.message.error('找不到藍圖');
+          return;
+        }
+
+        const { data: newWorkspace, error: createError } = await this.supabase.client
+          .from('workspaces')
+          .insert({
+            blueprint_id: blueprintId,
+            name: `${blueprint.name} - 工作區`,
+            owner_id: blueprint.owner_id,
+            owner_type: blueprint.owner_type,
+            status: 'active'
+          })
+          .select('id')
+          .single();
+
+        if (createError || !newWorkspace) {
+          console.error('Failed to create workspace:', createError);
+          this.message.error('建立工作區失敗');
+          return;
+        }
+
+        workspaceId = newWorkspace.id;
+      }
+
+      this.workspaceId.set(workspaceId);
+      await this.loadTasks(workspaceId);
+    } catch (error) {
+      console.error('Failed to initialize workspace:', error);
+      this.message.error('初始化工作區失敗');
+    }
+  }
+
+  /** Load tasks for the given workspace */
   private async loadTasks(workspaceId: string): Promise<void> {
     try {
       await this.taskStore.loadWorkspaceTasks(workspaceId);
@@ -227,14 +293,14 @@ export class TaskListComponent implements OnInit {
         this.message.success('任務已更新');
       } else {
         // Create new task
-        const blueprintId = this.blueprintId();
-        if (!blueprintId) {
-          this.message.error('缺少藍圖 ID');
+        const workspaceId = this.workspaceId();
+        if (!workspaceId) {
+          this.message.error('缺少工作區 ID');
           return false;
         }
 
         const createRequest: CreateTaskRequest = {
-          workspaceId: blueprintId,
+          workspaceId: workspaceId,
           name: data.name.trim(),
           description: data.description.trim() || undefined,
           priority: data.priority,
@@ -246,7 +312,7 @@ export class TaskListComponent implements OnInit {
       return true;
     } catch (error) {
       console.error('Failed to save task:', error);
-      this.message.error('儲存失敗');
+      this.message.error(editingTask ? '任務更新失敗' : '任務建立失敗');
       return false;
     }
   }
