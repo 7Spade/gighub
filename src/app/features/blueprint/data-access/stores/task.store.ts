@@ -4,11 +4,12 @@
  * State management store for Task feature
  * Acts as Facade layer providing unified API to components
  * Following vertical slice architecture
+ * Aligned with SETC-05 specification
  *
  * @module features/blueprint/data-access/stores/task.store
  */
 
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, computed } from '@angular/core';
 
 import { TaskModel, CreateTaskRequest, UpdateTaskRequest, TaskViewMode } from '../../domain';
 import { TaskService } from '../services';
@@ -31,17 +32,30 @@ export class TaskStore {
   readonly viewMode = this.taskService.viewMode;
   readonly statistics = this.taskService.statistics;
 
-  // Computed signals (shortcuts)
+  // Computed signals (shortcuts) - Per SETC-05 status values
   readonly pendingTasks = this.taskService.pendingTasks;
   readonly inProgressTasks = this.taskService.inProgressTasks;
   readonly completedTasks = this.taskService.completedTasks;
   readonly rootTasks = this.taskService.rootTasks;
 
+  // Additional computed per SETC-05
+  readonly inReviewTasks = computed(() => this.tasks().filter(t => t.status === 'in_review'));
+  readonly blockedTasks = computed(() => this.tasks().filter(t => t.status === 'blocked'));
+  readonly cancelledTasks = computed(() => this.tasks().filter(t => t.status === 'cancelled'));
+
+  // Progress statistics
+  readonly overallProgress = computed(() => {
+    const allTasks = this.tasks();
+    if (allTasks.length === 0) return 0;
+    const totalProgress = allTasks.reduce((sum, t) => sum + t.progress, 0);
+    return Math.round(totalProgress / allTasks.length);
+  });
+
   /**
-   * Load tasks for workspace
+   * Load tasks for blueprint
    */
-  async loadWorkspaceTasks(workspaceId: string): Promise<void> {
-    await this.taskService.loadTasksByWorkspace(workspaceId);
+  async loadBlueprintTasks(blueprintId: string): Promise<void> {
+    await this.taskService.loadTasksByBlueprint(blueprintId);
   }
 
   /**
@@ -66,7 +80,7 @@ export class TaskStore {
   }
 
   /**
-   * Delete task
+   * Delete task (soft delete)
    */
   async deleteTask(id: string): Promise<void> {
     return this.taskService.deleteTask(id);
@@ -77,6 +91,27 @@ export class TaskStore {
    */
   async completeTask(id: string): Promise<TaskModel> {
     return this.taskService.completeTask(id);
+  }
+
+  /**
+   * Submit task for review - Per SETC-05 status flow
+   */
+  async submitForReview(id: string): Promise<TaskModel> {
+    return this.taskService.updateTask(id, { status: 'in_review' });
+  }
+
+  /**
+   * Block task
+   */
+  async blockTask(id: string): Promise<TaskModel> {
+    return this.taskService.updateTask(id, { status: 'blocked' });
+  }
+
+  /**
+   * Unblock task (return to in_progress)
+   */
+  async unblockTask(id: string): Promise<TaskModel> {
+    return this.taskService.updateTask(id, { status: 'in_progress' });
   }
 
   /**

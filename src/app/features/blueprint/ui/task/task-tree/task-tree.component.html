@@ -3,13 +3,14 @@
   
   Displays tasks in tree structure with all required information:
   - Status badges
-  - Level indicators (L0, L1, L2, L3+)
+  - Task type indicator
   - Task name
   - Progress bars
-  - Completed/Total counts
-  - Assignee avatars
+  - Assignee / Reviewer avatars
   - Area tags
   - Labels
+  
+  Aligned with SETC-05 specification
 -->
 
 @if (rootTasks().length === 0) {
@@ -33,25 +34,16 @@
 <!-- Node Content Template -->
 <ng-template #nodeContent let-node>
   <div class="tree-node-content" (click)="onNodeClick(node)">
-    <!-- Level Badge -->
-    <nz-tag [nzColor]="getLevelColor(node.level)" class="level-tag">
-      {{ formatLevel(node.level) }}
-    </nz-tag>
-
     <!-- Status Badge -->
     <nz-badge [nzStatus]="getStatusColor(node.status)" [nzText]="getStatusText(node.status)"></nz-badge>
 
     <!-- Task Name -->
     <span class="task-name" [class.completed]="node.status === 'completed'">
+      @if (node.taskType === 'milestone') {
+        <i nz-icon nzType="flag" nzTheme="outline"></i>
+      }
       {{ node.name }}
     </span>
-
-    <!-- Child Count -->
-    @if (node.expandable) {
-      <nz-tag nzColor="default" class="child-count">
-        {{ node.childCount }} 子任務
-      </nz-tag>
-    }
 
     <!-- Progress Bar -->
     <div class="progress-wrapper">
@@ -63,27 +55,25 @@
       </nz-progress>
     </div>
 
-    <!-- Count Display -->
-    <span class="count-display">
-      {{ formatProgress(node.completedCount, node.totalCount) }}
-    </span>
+    <!-- Assignee -->
+    @if (node.assigneeId) {
+      <nz-avatar 
+        [nzText]="formatAssigneeInitials(node.assigneeId)"
+        nzSize="small"
+        nz-tooltip
+        nzTooltipTitle="負責人">
+      </nz-avatar>
+    }
 
-    <!-- Assignees -->
-    @if (node.assigneeIds.length > 0) {
-      <nz-avatar-group class="assignee-group">
-        @for (assigneeId of node.assigneeIds.slice(0, 3); track assigneeId) {
-          <nz-avatar 
-            [nzText]="formatAssigneeInitials(assigneeId)"
-            nzSize="small">
-          </nz-avatar>
-        }
-        @if (node.assigneeIds.length > 3) {
-          <nz-avatar 
-            [nzText]="'+' + (node.assigneeIds.length - 3)"
-            nzSize="small">
-          </nz-avatar>
-        }
-      </nz-avatar-group>
+    <!-- Reviewer -->
+    @if (node.reviewerId) {
+      <nz-avatar 
+        [nzText]="formatAssigneeInitials(node.reviewerId)"
+        nzSize="small"
+        nz-tooltip
+        nzTooltipTitle="監工"
+        class="reviewer-avatar">
+      </nz-avatar>
     }
 
     <!-- Area Tag -->

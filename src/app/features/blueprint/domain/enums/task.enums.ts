@@ -3,39 +3,36 @@
  *
  * Enum definitions for Task business logic
  * Following vertical slice architecture
+ * Aligned with SETC-05 specification
  *
  * @module features/blueprint/domain/enums/task.enums
  */
 
 /**
- * Task status enum for business logic
+ * Task status enum for business logic - Per SETC-05
  */
 export enum TaskStatusEnum {
-  TODO = 'todo',
+  PENDING = 'pending',
   IN_PROGRESS = 'in_progress',
   IN_REVIEW = 'in_review',
-  DONE = 'done',
+  COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-  // Legacy aliases for backward compatibility
-  PENDING = 'pending',
-  COMPLETED = 'completed'
+  BLOCKED = 'blocked'
 }
 
 /**
- * Task priority enum for business logic
+ * Task priority enum for business logic - Per SETC-05
  */
 export enum TaskPriorityEnum {
   LOWEST = 'lowest',
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  HIGHEST = 'highest',
-  // Legacy alias
-  URGENT = 'urgent'
+  HIGHEST = 'highest'
 }
 
 /**
- * Task type enum for business logic
+ * Task type enum for business logic - Per SETC-05
  */
 export enum TaskTypeEnum {
   TASK = 'task',

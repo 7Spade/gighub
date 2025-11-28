@@ -3,6 +3,7 @@
  *
  * Business logic for Task Module management
  * Following vertical slice architecture
+ * Aligned with SETC-05 specification
  *
  * Uses Angular Signals for reactive state management
  * Supports unlimited depth tree structure
@@ -40,7 +41,7 @@ export class TaskService {
   readonly error = this.errorState.asReadonly();
   readonly viewMode = this.viewModeState.asReadonly();
 
-  // Computed signals for derived state
+  // Computed signals for derived state - Per SETC-05 status values
   readonly pendingTasks = computed(() => this.tasks().filter(t => t.status === TaskStatusEnum.PENDING));
 
   readonly inProgressTasks = computed(() => this.tasks().filter(t => t.status === TaskStatusEnum.IN_PROGRESS));
@@ -51,39 +52,33 @@ export class TaskService {
 
   readonly statistics = computed<TaskStatistics>(() => {
     const tasks = this.tasks();
-    const totalDepth = tasks.reduce((sum, t) => sum + t.depth, 0);
 
     return {
       totalCount: tasks.length,
       pendingCount: tasks.filter(t => t.status === TaskStatusEnum.PENDING).length,
       inProgressCount: tasks.filter(t => t.status === TaskStatusEnum.IN_PROGRESS).length,
+      inReviewCount: tasks.filter(t => t.status === TaskStatusEnum.IN_REVIEW).length,
       completedCount: tasks.filter(t => t.status === TaskStatusEnum.COMPLETED).length,
       cancelledCount: tasks.filter(t => t.status === TaskStatusEnum.CANCELLED).length,
+      blockedCount: tasks.filter(t => t.status === TaskStatusEnum.BLOCKED).length,
 
-      // By level
-      l0Count: tasks.filter(t => t.depth === 0).length,
-      l1Count: tasks.filter(t => t.depth === 1).length,
-      l2Count: tasks.filter(t => t.depth === 2).length,
-      l3PlusCount: tasks.filter(t => t.depth >= 3).length,
-
-      // Progress
-      overallProgress: tasks.length > 0 ? (tasks.filter(t => t.status === TaskStatusEnum.COMPLETED).length / tasks.length) * 100 : 0,
-      averageDepth: tasks.length > 0 ? totalDepth / tasks.length : 0
+      // Overall progress
+      overallProgress: tasks.length > 0 ? Math.round(tasks.reduce((sum, t) => sum + t.progress, 0) / tasks.length) : 0
     };
   });
 
   /**
-   * Load tasks by workspace
+   * Load tasks by blueprint - Per SETC-05
    */
-  async loadTasksByWorkspace(workspaceId: string): Promise<void> {
+  async loadTasksByBlueprint(blueprintId: string): Promise<void> {
     this.loadingState.set(true);
     this.errorState.set(null);
 
     try {
-      const tasks = await firstValueFrom(this.taskRepo.findByWorkspace(workspaceId));
+      const tasks = await firstValueFrom(this.taskRepo.findByBlueprint(blueprintId));
       this.tasksState.set(tasks);
     } catch (error) {
-      this.errorState.set(error instanceof Error ? error.message : 'Failed to load tasks');
+      this.errorState.set(error instanceof Error ? error.message : '載入任務失敗');
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -100,12 +95,12 @@ export class TaskService {
     try {
       const task = await firstValueFrom(this.taskRepo.findById(id));
       if (!task) {
-        throw new Error('Task not found');
+        throw new Error('任務不存在');
       }
       this.selectedTaskState.set(task);
       return task;
     } catch (error) {
-      this.errorState.set(error instanceof Error ? error.message : 'Failed to load task');
+      this.errorState.set(error instanceof Error ? error.message : '載入任務失敗');
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -120,18 +115,24 @@ export class TaskService {
     this.errorState.set(null);
 
     try {
-      // Calculate path and depth
-      const { path, depth } = await this.calculatePathAndDepth(request.parentId, request.workspaceId);
-
       const taskInsert = {
-        ...request,
-        path,
-        depth,
+        blueprintId: request.blueprintId,
+        parentId: request.parentId || null,
+        sortOrder: request.sortOrder || 0,
+        name: request.name,
+        description: request.description,
         status: 'pending' as const,
         priority: request.priority || ('medium' as const),
-        assigneeIds: request.assigneeIds || [],
-        assigneeTypes: request.assigneeTypes || [],
-        tags: request.tags || []
+        taskType: request.taskType || ('task' as const),
+        progress: 0,
+        weight: request.weight || 1.0,
+        startDate: request.startDate,
+        dueDate: request.dueDate,
+        assigneeId: request.assigneeId || null,
+        reviewerId: request.reviewerId || null,
+        area: request.area,
+        tags: request.tags || [],
+        createdBy: request.createdBy
       };
 
       const newTask = await firstValueFrom(this.taskRepo.create(taskInsert));
@@ -141,7 +142,7 @@ export class TaskService {
 
       return newTask;
     } catch (error) {
-      this.errorState.set(error instanceof Error ? error.message : 'Failed to create task');
+      this.errorState.set(error instanceof Error ? error.message : '建立任務失敗');
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -165,14 +166,9 @@ export class TaskService {
         this.selectedTaskState.set(updatedTask);
       }
 
-      // Recalculate progress for parent tasks
-      if (request.status) {
-        await this.recalculateParentProgress(updatedTask);
-      }
-
       return updatedTask;
     } catch (error) {
-      this.errorState.set(error instanceof Error ? error.message : 'Failed to update task');
+      this.errorState.set(error instanceof Error ? error.message : '更新任務失敗');
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -180,7 +176,7 @@ export class TaskService {
   }
 
   /**
-   * Delete task
+   * Delete task (soft delete)
    */
   async deleteTask(id: string): Promise<void> {
     this.loadingState.set(true);
@@ -196,7 +192,7 @@ export class TaskService {
         this.selectedTaskState.set(null);
       }
     } catch (error) {
-      this.errorState.set(error instanceof Error ? error.message : 'Failed to delete task');
+      this.errorState.set(error instanceof Error ? error.message : '刪除任務失敗');
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -207,7 +203,10 @@ export class TaskService {
    * Complete task
    */
   async completeTask(id: string): Promise<TaskModel> {
-    return this.updateTask(id, { status: TaskStatusEnum.COMPLETED });
+    return this.updateTask(id, {
+      status: TaskStatusEnum.COMPLETED,
+      completedAt: new Date().toISOString()
+    });
   }
 
   /**
@@ -222,80 +221,6 @@ export class TaskService {
    */
   setViewMode(mode: TaskViewMode): void {
     this.viewModeState.set(mode);
-  }
-
-  /**
-   * Calculate path and depth for new task
-   */
-  private async calculatePathAndDepth(parentId: string | null | undefined, workspaceId: string): Promise<{ path: string; depth: number }> {
-    if (!parentId) {
-      // Root task - calculate next position
-      const rootTasks = await firstValueFrom(this.taskRepo.findRootTasks(workspaceId));
-      const position = rootTasks.length;
-      return {
-        path: (position + 1).toString(),
-        depth: 0
-      };
-    }
-
-    // Child task - get parent and append position
-    const parent = await firstValueFrom(this.taskRepo.findById(parentId));
-    if (!parent) {
-      throw new Error('Parent task not found');
-    }
-
-    const siblings = await firstValueFrom(this.taskRepo.findByParent(parentId));
-    const position = siblings.length;
-
-    return {
-      path: `${parent.path}.${position + 1}`,
-      depth: parent.depth + 1
-    };
-  }
-
-  /**
-   * Recalculate progress for parent tasks (recursive)
-   *
-   * Note: This is a simplified implementation for the base structure.
-   * In production, progress calculation should be handled by database triggers
-   * or a dedicated background job to ensure consistency across the tree.
-   */
-  private async recalculateParentProgress(task: TaskModel): Promise<void> {
-    if (!task.parentId) {
-      return; // Root task, no parent to update
-    }
-
-    try {
-      const parent = await firstValueFrom(this.taskRepo.findById(task.parentId));
-      if (!parent) {
-        return;
-      }
-
-      // Get all children of parent
-      const children = await firstValueFrom(this.taskRepo.findByParent(parent.id));
-
-      // Note: Progress calculation is currently a no-op.
-      // In production, progress should be calculated by database triggers because:
-      // 1. Ensures consistency across concurrent updates
-      // 2. Avoids race conditions
-      // 3. Maintains atomicity
-      //
-      // When implementing, use these calculations:
-      // const completedCount = children.filter(c => c.status === TaskStatusEnum.COMPLETED).length;
-      // const totalCount = children.length;
-      // const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-      //
-      // TODO: Implement database trigger for automatic progress calculation
-      if (children.length === 0) {
-        // No children means no progress to calculate
-        return;
-      }
-
-      // Recursively update grandparent
-      await this.recalculateParentProgress(parent);
-    } catch (error) {
-      console.error('Failed to recalculate parent progress:', error);
-    }
   }
 
   /**

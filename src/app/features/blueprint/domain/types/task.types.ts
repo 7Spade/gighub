@@ -4,23 +4,31 @@
  * Type definitions for Task Module (任務模組)
  * Supporting unlimited depth hierarchy with tree structure
  * Following vertical slice architecture and enterprise guidelines
+ * Aligned with SETC-05 specification
  *
  * @module features/blueprint/domain/types/task.types
  */
 
 /**
- * Task status (狀態)
+ * Task status (狀態) - Per SETC-05
  */
 export type TaskStatus =
   | 'pending' // 待處理
   | 'in_progress' // 進行中
+  | 'in_review' // 審核中
   | 'completed' // 已完成
-  | 'cancelled'; // 已取消
+  | 'cancelled' // 已取消
+  | 'blocked'; // 已阻塞
 
 /**
- * Task priority
+ * Task priority - Per SETC-05
  */
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskPriority = 'lowest' | 'low' | 'medium' | 'high' | 'highest';
+
+/**
+ * Task type - Per SETC-05
+ */
+export type TaskType = 'task' | 'milestone' | 'bug' | 'feature' | 'improvement';
 
 /**
  * Assignee type (被指派者類型)
@@ -29,65 +37,69 @@ export type AssigneeType = 'user' | 'team' | 'organization';
 
 /**
  * Task entity with unlimited tree depth
+ * Aligned with SETC-05 database schema
  */
 export interface Task {
   // Identity
   id: string;
-  workspaceId: string;
+  blueprintId: string;
 
   // Tree structure (無限子層)
   parentId: string | null; // null for root tasks (L0)
-  position: number; // Sibling ordering (0-based)
-  path: string; // Materialized path: '1', '1.2', '1.2.3'
-  depth: number; // Tree depth: 0(L0), 1(L1), 2(L2), 3(L3)...
+  sortOrder: number; // Sibling ordering (0-based)
 
   // Basic info
   name: string; // 任務名稱
   description?: string;
   status: TaskStatus; // 狀態
   priority: TaskPriority;
+  taskType: TaskType;
+
+  // Progress tracking (進度)
+  progress: number; // 進度百分比 (0-100)
+  weight: number; // 權重 for parent calculation
+
+  // Scheduling
+  startDate?: string; // ISO date string
+  dueDate?: string; // ISO date string
 
   // Assignment (被指派者)
-  assigneeIds: string[];
-  assigneeTypes: AssigneeType[];
+  assigneeId: string | null; // 執行者
+  reviewerId: string | null; // 監工
 
   // Location & Categorization
   area?: string; // 區域
   tags: string[]; // 標籤
 
-  // Progress tracking (進度)
-  completedCount: number; // 完成數量 (children completed)
-  totalCount: number; // 總數量 (total children)
-  progress: number; // 進度百分比 (calculated: completedCount / totalCount * 100)
-
-  // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
-  dueDate?: Date;
-
-  // Denormalized counts for performance
-  childCount: number; // Direct children count
+  // Audit
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  deletedAt?: string;
 }
 
 /**
  * Task insert type (for creation)
  */
 export interface TaskInsert {
-  workspaceId: string;
+  blueprintId: string;
   parentId?: string | null;
-  position?: number;
-  path: string;
-  depth: number;
+  sortOrder?: number;
   name: string;
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
-  assigneeIds?: string[];
-  assigneeTypes?: AssigneeType[];
+  taskType?: TaskType;
+  progress?: number;
+  weight?: number;
+  startDate?: string;
+  dueDate?: string;
+  assigneeId?: string | null;
+  reviewerId?: string | null;
   area?: string;
   tags?: string[];
-  dueDate?: Date;
+  createdBy: string;
 }
 
 /**
@@ -98,13 +110,18 @@ export interface TaskUpdate {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
-  assigneeIds?: string[];
-  assigneeTypes?: AssigneeType[];
+  taskType?: TaskType;
+  progress?: number;
+  weight?: number;
+  startDate?: string;
+  dueDate?: string;
+  assigneeId?: string | null;
+  reviewerId?: string | null;
   area?: string;
   tags?: string[];
-  dueDate?: Date;
-  position?: number;
+  sortOrder?: number;
   parentId?: string | null;
+  completedAt?: string;
 }
 
 /**
@@ -139,14 +156,18 @@ export interface TaskAssignment {
 }
 
 /**
- * Type guards
+ * Type guards - Updated for SETC-05
  */
 export function isTaskStatus(value: unknown): value is TaskStatus {
-  return typeof value === 'string' && ['pending', 'in_progress', 'completed', 'cancelled'].includes(value);
+  return typeof value === 'string' && ['pending', 'in_progress', 'in_review', 'completed', 'cancelled', 'blocked'].includes(value);
 }
 
 export function isTaskPriority(value: unknown): value is TaskPriority {
-  return typeof value === 'string' && ['low', 'medium', 'high', 'urgent'].includes(value);
+  return typeof value === 'string' && ['lowest', 'low', 'medium', 'high', 'highest'].includes(value);
+}
+
+export function isTaskType(value: unknown): value is TaskType {
+  return typeof value === 'string' && ['task', 'milestone', 'bug', 'feature', 'improvement'].includes(value);
 }
 
 export function isAssigneeType(value: unknown): value is AssigneeType {

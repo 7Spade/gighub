@@ -3,50 +3,79 @@
  *
  * Utility functions for task display formatting
  * Shared between tree and table views
+ * Aligned with SETC-05 specification
  *
  * @module features/blueprint/ui/task/shared/task-display.utils
  */
 
-import { TaskStatus, TaskPriority } from '../../../domain';
+import { TaskStatus, TaskPriority, TaskType } from '../../../domain';
 
 /**
- * Status badge color mapping
+ * Status badge color mapping - Per SETC-05
  */
 const STATUS_COLORS: Record<TaskStatus, string> = {
   pending: 'default',
   in_progress: 'processing',
+  in_review: 'warning',
   completed: 'success',
-  cancelled: 'error'
+  cancelled: 'error',
+  blocked: 'magenta'
 };
 
 /**
- * Status display text mapping (Traditional Chinese)
+ * Status display text mapping (Traditional Chinese) - Per SETC-05
  */
 const STATUS_TEXTS: Record<TaskStatus, string> = {
   pending: '待處理',
   in_progress: '進行中',
+  in_review: '審核中',
   completed: '已完成',
-  cancelled: '已取消'
+  cancelled: '已取消',
+  blocked: '已阻塞'
 };
 
 /**
- * Priority color mapping
+ * Priority color mapping - Per SETC-05
  */
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: 'default',
+  lowest: 'default',
+  low: 'blue',
   medium: 'warning',
-  high: 'error',
-  urgent: 'magenta'
+  high: 'orange',
+  highest: 'error'
 };
 
 /**
- * Priority display text mapping
+ * Priority display text mapping - Per SETC-05
  */
 const PRIORITY_TEXTS: Record<TaskPriority, string> = {
+  lowest: '最低',
   low: '低',
   medium: '中',
   high: '高',
-  urgent: '緊急'
+  highest: '最高'
+};
+
+/**
+ * Task type color mapping - Per SETC-05
+ */
+const TASK_TYPE_COLORS: Record<TaskType, string> = {
+  task: 'blue',
+  milestone: 'gold',
+  bug: 'red',
+  feature: 'green',
+  improvement: 'cyan'
+};
+
+/**
+ * Task type text mapping - Per SETC-05
+ */
+const TASK_TYPE_TEXTS: Record<TaskType, string> = {
+  task: '任務',
+  milestone: '里程碑',
+  bug: '缺陷',
+  feature: '功能',
+  improvement: '改進'
 };
 
 /**
@@ -78,18 +107,17 @@ export function getPriorityText(priority: TaskPriority): string {
 }
 
 /**
- * Format level display (L0, L1, L2, L3+)
+ * Get task type tag color
  */
-export function formatLevel(depth: number): string {
-  return `L${depth}`;
+export function getTaskTypeColor(taskType: TaskType): string {
+  return TASK_TYPE_COLORS[taskType] ?? 'default';
 }
 
 /**
- * Get level tag color based on depth
+ * Get task type display text
  */
-export function getLevelColor(depth: number): string {
-  const colors = ['blue', 'cyan', 'green', 'orange', 'purple'];
-  return colors[Math.min(depth, colors.length - 1)];
+export function getTaskTypeText(taskType: TaskType): string {
+  return TASK_TYPE_TEXTS[taskType] ?? taskType;
 }
 
 /**
@@ -131,7 +159,9 @@ export function formatAssigneeInitials(assigneeId: string): string {
 export function getNodeIcon(status: TaskStatus, expandable: boolean): string {
   if (status === 'completed') return 'check-circle';
   if (status === 'cancelled') return 'close-circle';
+  if (status === 'blocked') return 'stop';
   if (status === 'in_progress') return 'loading';
+  if (status === 'in_review') return 'eye';
   if (expandable) return 'folder';
   return 'file';
 }
@@ -140,5 +170,5 @@ export function getNodeIcon(status: TaskStatus, expandable: boolean): string {
  * Get icon theme based on status
  */
 export function getIconTheme(status: TaskStatus): 'outline' | 'fill' | 'twotone' {
-  return status === 'completed' || status === 'cancelled' ? 'fill' : 'outline';
+  return status === 'completed' || status === 'cancelled' || status === 'blocked' ? 'fill' : 'outline';
 }

@@ -3,6 +3,7 @@
  *
  * Table view for tasks with sorting and pagination
  * Displays all task information in tabular format
+ * Aligned with SETC-05 specification
  *
  * @module features/blueprint/ui/task/task-table
  */
@@ -10,17 +11,8 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, Signal } from '@angular/core';
 import { SHARED_IMPORTS } from '@shared';
 
-import { Task } from '../../../domain';
-import {
-  getStatusColor,
-  getStatusText,
-  formatLevel,
-  getLevelColor,
-  getProgressStatus,
-  formatAssigneeInitials,
-  getPriorityColor,
-  getPriorityText
-} from '../shared';
+import { Task, TaskType } from '../../../domain';
+import { getStatusColor, getStatusText, getProgressStatus, formatAssigneeInitials, getPriorityColor, getPriorityText } from '../shared';
 
 /**
  * Task Table Component
@@ -54,8 +46,6 @@ export class TaskTableComponent {
   /** Utility methods exposed to template */
   getStatusColor = getStatusColor;
   getStatusText = getStatusText;
-  formatLevel = formatLevel;
-  getLevelColor = getLevelColor;
   getProgressStatus = getProgressStatus;
   formatAssigneeInitials = formatAssigneeInitials;
   getPriorityColor = getPriorityColor;
@@ -79,7 +69,31 @@ export class TaskTableComponent {
   }
 
   /** Get indent padding for hierarchical display */
-  getIndentPadding(depth: number): number {
-    return depth * 20;
+  getIndentPadding(sortOrder: number): number {
+    return sortOrder * 5;
+  }
+
+  /** Get task type color - Per SETC-05 */
+  getTaskTypeColor(taskType: TaskType): string {
+    const colors: Record<TaskType, string> = {
+      task: 'blue',
+      milestone: 'gold',
+      bug: 'red',
+      feature: 'green',
+      improvement: 'cyan'
+    };
+    return colors[taskType] || 'default';
+  }
+
+  /** Get task type text - Per SETC-05 */
+  getTaskTypeText(taskType: TaskType): string {
+    const texts: Record<TaskType, string> = {
+      task: '任務',
+      milestone: '里程碑',
+      bug: '缺陷',
+      feature: '功能',
+      improvement: '改進'
+    };
+    return texts[taskType] || taskType;
   }
 }

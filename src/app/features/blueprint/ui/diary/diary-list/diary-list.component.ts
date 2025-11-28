@@ -66,6 +66,7 @@ export class DiaryListComponent implements OnInit {
     return filtered;
   });
 
+  // eslint-disable-next-line @angular-eslint/no-empty-lifecycle-method
   ngOnInit(): void {
     // Load initial data - would need workspaceId from context
     // this.diaryStore.loadWorkspaceDiaries(workspaceId);

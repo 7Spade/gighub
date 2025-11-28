@@ -17,7 +17,7 @@
  * @module features/blueprint/ui/blueprint-list
  */
 
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthContextService } from '@core';
 import { SHARED_IMPORTS } from '@shared';

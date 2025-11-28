@@ -3,14 +3,15 @@
  *
  * Tree node types for NzTreeView integration
  * Supports unlimited depth hierarchy
+ * Aligned with SETC-05 specification
  *
  * @module features/blueprint/ui/task/shared/task-node.types
  */
 
-import { Task, TaskStatus } from '../../../domain';
+import { Task, TaskStatus, TaskPriority, TaskType } from '../../../domain';
 
 /**
- * Flat tree node for NzTreeFlatDataSource
+ * Flat tree node for NzTreeFlatDataSource - Per SETC-05
  */
 export interface TaskFlatNode {
   /** Task ID */
@@ -25,23 +26,17 @@ export interface TaskFlatNode {
   /** Whether node is expandable (has children) */
   expandable: boolean;
 
-  /** Direct child count */
-  childCount: number;
-
   /** Task status */
   status: TaskStatus;
 
   /** Progress percentage (0-100) */
   progress: number;
 
-  /** Completed count */
-  completedCount: number;
+  /** Assignee ID */
+  assigneeId: string | null;
 
-  /** Total count */
-  totalCount: number;
-
-  /** Assignee IDs */
-  assigneeIds: string[];
+  /** Reviewer ID */
+  reviewerId: string | null;
 
   /** Area tag */
   area?: string;
@@ -50,7 +45,10 @@ export interface TaskFlatNode {
   tags: string[];
 
   /** Priority */
-  priority: string;
+  priority: TaskPriority;
+
+  /** Task Type */
+  taskType: TaskType;
 
   /** Original task data */
   task: Task;
@@ -94,9 +92,9 @@ export function buildChildrenMap(tasks: Task[]): TaskChildrenMap {
     map.get(parentId)!.push(task);
   }
 
-  // Sort children by position
+  // Sort children by sortOrder
   for (const children of map.values()) {
-    children.sort((a, b) => a.position - b.position);
+    children.sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   return map;
@@ -123,25 +121,24 @@ export function buildTreeNodes(tasks: Task[], childrenMap: TaskChildrenMap, pare
 }
 
 /**
- * Convert Task to TaskFlatNode
+ * Convert Task to TaskFlatNode - Per SETC-05
  */
-export function taskToFlatNode(task: Task, childrenMap: TaskChildrenMap): TaskFlatNode {
+export function taskToFlatNode(task: Task, childrenMap: TaskChildrenMap, level = 0): TaskFlatNode {
   const children = getChildren(childrenMap, task.id);
 
   return {
     id: task.id,
     name: task.name,
-    level: task.depth,
+    level,
     expandable: children.length > 0,
-    childCount: task.childCount,
     status: task.status,
     progress: task.progress,
-    completedCount: task.completedCount,
-    totalCount: task.totalCount,
-    assigneeIds: task.assigneeIds,
+    assigneeId: task.assigneeId,
+    reviewerId: task.reviewerId,
     area: task.area,
     tags: task.tags,
     priority: task.priority,
+    taskType: task.taskType,
     task
   };
 }

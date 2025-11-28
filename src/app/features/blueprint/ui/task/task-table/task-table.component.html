@@ -2,15 +2,16 @@
   Task Table Component Template
   
   Displays tasks in table format with:
-  - Level indicators
   - Status badges
   - Task name with hierarchy indent
   - Progress bars
-  - Counts
-  - Assignees
+  - Assignee
+  - Reviewer
   - Area
   - Tags
   - Actions
+  
+  Aligned with SETC-05 specification
 -->
 
 <nz-table 
@@ -23,13 +24,13 @@
   nzBordered>
   <thead>
     <tr>
-      <th nzWidth="70px" nzAlign="center">層級</th>
       <th nzWidth="100px" nzAlign="center">優先級</th>
+      <th nzWidth="80px" nzAlign="center">類型</th>
       <th nzLeft>任務名稱</th>
       <th nzWidth="100px" nzAlign="center">狀態</th>
       <th nzWidth="130px">進度</th>
-      <th nzWidth="90px" nzAlign="center">完成/總數</th>
-      <th nzWidth="120px">被指派者</th>
+      <th nzWidth="120px">負責人</th>
+      <th nzWidth="120px">監工</th>
       <th nzWidth="100px">區域</th>
       <th nzWidth="150px">標籤</th>
       <th nzWidth="120px" nzRight nzAlign="center">操作</th>
@@ -38,13 +39,6 @@
   <tbody>
     @for (task of taskTable.data; track task.id) {
       <tr class="task-row" (click)="onRowClick(task)">
-        <!-- Level -->
-        <td nzAlign="center">
-          <nz-tag [nzColor]="getLevelColor(task.depth)">
-            {{ formatLevel(task.depth) }}
-          </nz-tag>
-        </td>
-
         <!-- Priority -->
         <td nzAlign="center">
           <nz-tag [nzColor]="getPriorityColor(task.priority)">
@@ -52,11 +46,18 @@
           </nz-tag>
         </td>
 
+        <!-- Task Type -->
+        <td nzAlign="center">
+          <nz-tag [nzColor]="getTaskTypeColor(task.taskType)">
+            {{ getTaskTypeText(task.taskType) }}
+          </nz-tag>
+        </td>
+
         <!-- Task Name with indent -->
         <td nzLeft>
-          <div class="task-name-cell" [style.padding-left.px]="getIndentPadding(task.depth)">
-            @if (task.childCount > 0) {
-              <i nz-icon nzType="folder" nzTheme="outline" class="folder-icon"></i>
+          <div class="task-name-cell" [style.padding-left.px]="getIndentPadding(task.sortOrder)">
+            @if (task.taskType === 'milestone') {
+              <i nz-icon nzType="flag" nzTheme="outline" class="folder-icon"></i>
             } @else {
               <i nz-icon nzType="file" nzTheme="outline" class="file-icon"></i>
             }
@@ -69,9 +70,6 @@
                  nz-tooltip 
                  [nzTooltipTitle]="task.description">
               </i>
-            }
-            @if (task.childCount > 0) {
-              <span class="child-hint">({{ task.childCount }})</span>
             }
           </div>
         </td>
@@ -94,32 +92,31 @@
           </nz-progress>
         </td>
 
-        <!-- Counts -->
-        <td nzAlign="center">
-          <span class="count-text">{{ task.completedCount }} / {{ task.totalCount }}</span>
-        </td>
-
-        <!-- Assignees -->
+        <!-- Assignee -->
         <td>
-          @if (task.assigneeIds.length > 0) {
-            <nz-avatar-group>
-              @for (assigneeId of task.assigneeIds.slice(0, 3); track assigneeId) {
-                <nz-avatar 
-                  [nzText]="formatAssigneeInitials(assigneeId)"
-                  nzSize="small"
-                  nz-tooltip
-                  [nzTooltipTitle]="assigneeId">
-                </nz-avatar>
-              }
-              @if (task.assigneeIds.length > 3) {
-                <nz-avatar 
-                  [nzText]="'+' + (task.assigneeIds.length - 3)"
-                  nzSize="small">
-                </nz-avatar>
-              }
-            </nz-avatar-group>
+          @if (task.assigneeId) {
+            <nz-avatar 
+              [nzText]="formatAssigneeInitials(task.assigneeId)"
+              nzSize="small"
+              nz-tooltip
+              [nzTooltipTitle]="task.assigneeId">
+            </nz-avatar>
           } @else {
             <span class="no-assignee">未指派</span>
+          }
+        </td>
+
+        <!-- Reviewer -->
+        <td>
+          @if (task.reviewerId) {
+            <nz-avatar 
+              [nzText]="formatAssigneeInitials(task.reviewerId)"
+              nzSize="small"
+              nz-tooltip
+              [nzTooltipTitle]="task.reviewerId">
+            </nz-avatar>
+          } @else {
+            <span class="no-assignee">-</span>
           }
         </td>
 

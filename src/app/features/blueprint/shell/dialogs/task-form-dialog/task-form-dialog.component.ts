@@ -4,6 +4,7 @@
  * Modal dialog for creating/editing tasks (任務表單對話框)
  * Using @delon/form for dynamic form generation
  * Following enterprise guidelines and vertical slice architecture
+ * Aligned with SETC-05 specification
  *
  * Dependency flow:
  * Component → Store (Facade) → Service → Repository
@@ -14,11 +15,12 @@
 import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { SFComponent, SFSchema, SFUISchema } from '@delon/form';
 import { SHARED_IMPORTS } from '@shared';
+import { format, isDate } from 'date-fns';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NZ_MODAL_DATA, NzModalRef } from 'ng-zorro-antd/modal';
 
 import { TaskStore } from '../../../data-access';
-import { TaskModel, CreateTaskRequest, UpdateTaskRequest, TaskPriority, TaskStatus } from '../../../domain';
+import { TaskModel, CreateTaskRequest, UpdateTaskRequest, TaskPriority, TaskStatus, TaskType } from '../../../domain';
 
 /**
  * Dialog mode for create/edit
@@ -31,21 +33,25 @@ export type TaskFormMode = 'create' | 'edit';
 export interface TaskFormDialogData {
   mode: TaskFormMode;
   task?: TaskModel;
-  workspaceId: string;
+  blueprintId: string;
   parentId?: string | null;
+  createdBy: string;
 }
 
 /**
- * Form values interface
+ * Form values interface - Per SETC-05
  */
 interface TaskFormValues {
   name: string;
   description?: string;
   priority: TaskPriority;
   status?: TaskStatus;
+  taskType: TaskType;
   area?: string;
   tags?: string;
+  startDate?: Date;
   dueDate?: Date;
+  weight?: number;
 }
 
 /**
@@ -78,7 +84,7 @@ export class TaskFormDialogComponent implements OnInit {
   readonly dialogTitle = this.isEditMode ? '編輯任務' : '建立任務';
 
   /**
-   * Form schema definition (JSON Schema)
+   * Form schema definition (JSON Schema) - Per SETC-05
    */
   readonly schema: SFSchema = {
     properties: {
@@ -93,14 +99,27 @@ export class TaskFormDialogComponent implements OnInit {
         title: '描述',
         maxLength: 1000
       },
+      taskType: {
+        type: 'string',
+        title: '任務類型',
+        enum: [
+          { label: '任務', value: 'task' },
+          { label: '里程碑', value: 'milestone' },
+          { label: '缺陷', value: 'bug' },
+          { label: '功能', value: 'feature' },
+          { label: '改進', value: 'improvement' }
+        ],
+        default: 'task'
+      },
       priority: {
         type: 'string',
         title: '優先級',
         enum: [
+          { label: '最低', value: 'lowest' },
           { label: '低', value: 'low' },
           { label: '中', value: 'medium' },
           { label: '高', value: 'high' },
-          { label: '緊急', value: 'urgent' }
+          { label: '最高', value: 'highest' }
         ],
         default: 'medium'
       },
@@ -110,8 +129,10 @@ export class TaskFormDialogComponent implements OnInit {
         enum: [
           { label: '待處理', value: 'pending' },
           { label: '進行中', value: 'in_progress' },
+          { label: '審核中', value: 'in_review' },
           { label: '已完成', value: 'completed' },
-          { label: '已取消', value: 'cancelled' }
+          { label: '已取消', value: 'cancelled' },
+          { label: '已阻塞', value: 'blocked' }
         ],
         default: 'pending'
       },
@@ -124,13 +145,25 @@ export class TaskFormDialogComponent implements OnInit {
         type: 'string',
         title: '標籤'
       },
+      startDate: {
+        type: 'string',
+        title: '開始日期',
+        format: 'date'
+      },
       dueDate: {
         type: 'string',
         title: '截止日期',
         format: 'date'
+      },
+      weight: {
+        type: 'number',
+        title: '權重',
+        minimum: 0,
+        maximum: 100,
+        default: 1
       }
     },
-    required: ['name', 'priority']
+    required: ['name', 'priority', 'taskType']
   };
 
   /**
@@ -150,6 +183,10 @@ export class TaskFormDialogComponent implements OnInit {
       placeholder: '請輸入任務描述（選填）',
       autosize: { minRows: 2, maxRows: 4 }
     },
+    $taskType: {
+      widget: 'select',
+      placeholder: '請選擇任務類型'
+    },
     $priority: {
       widget: 'select',
       placeholder: '請選擇優先級'
@@ -166,9 +203,17 @@ export class TaskFormDialogComponent implements OnInit {
       widget: 'string',
       placeholder: '輸入標籤，用逗號分隔'
     },
+    $startDate: {
+      widget: 'date',
+      placeholder: '請選擇開始日期'
+    },
     $dueDate: {
       widget: 'date',
       placeholder: '請選擇截止日期'
+    },
+    $weight: {
+      widget: 'number',
+      placeholder: '請輸入權重'
     }
   };
 
@@ -179,17 +224,22 @@ export class TaskFormDialogComponent implements OnInit {
       this.formData.set({
         name: task.name,
         description: task.description,
+        taskType: task.taskType,
         priority: task.priority,
         status: task.status,
         area: task.area,
         tags: task.tags?.join(','),
-        dueDate: task.dueDate
+        startDate: task.startDate ? new Date(task.startDate) : undefined,
+        dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+        weight: task.weight
       });
     } else {
       // Default values for create mode
       this.formData.set({
         priority: 'medium',
-        status: 'pending'
+        status: 'pending',
+        taskType: 'task',
+        weight: 1
       });
     }
   }
@@ -230,18 +280,33 @@ export class TaskFormDialogComponent implements OnInit {
   }
 
   /**
+   * Convert Date to ISO string
+   */
+  private formatDateToString(date: Date | undefined): string | undefined {
+    if (!date) return undefined;
+    if (isDate(date)) {
+      return format(date, 'yyyy-MM-dd');
+    }
+    return undefined;
+  }
+
+  /**
    * Handle task creation
    */
   private async handleCreate(formValue: TaskFormValues, tags: string[]): Promise<void> {
     const request: CreateTaskRequest = {
-      workspaceId: this.dialogData.workspaceId,
+      blueprintId: this.dialogData.blueprintId,
       parentId: this.dialogData.parentId,
       name: formValue.name,
       description: formValue.description,
+      taskType: formValue.taskType,
       priority: formValue.priority,
       area: formValue.area,
       tags,
-      dueDate: formValue.dueDate
+      startDate: this.formatDateToString(formValue.startDate),
+      dueDate: this.formatDateToString(formValue.dueDate),
+      weight: formValue.weight,
+      createdBy: this.dialogData.createdBy
     };
 
     const result = await this.taskStore.createTask(request);
@@ -260,11 +325,14 @@ export class TaskFormDialogComponent implements OnInit {
     const request: UpdateTaskRequest = {
       name: formValue.name,
       description: formValue.description,
+      taskType: formValue.taskType,
       priority: formValue.priority,
       status: formValue.status,
       area: formValue.area,
       tags,
-      dueDate: formValue.dueDate
+      startDate: this.formatDateToString(formValue.startDate),
+      dueDate: this.formatDateToString(formValue.dueDate),
+      weight: formValue.weight
     };
 
     const result = await this.taskStore.updateTask(this.dialogData.task.id, request);

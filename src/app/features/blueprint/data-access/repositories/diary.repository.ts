@@ -77,11 +77,12 @@ export class DiaryRepository extends BaseRepository<Diary, DiaryInsert, DiaryUpd
    * Find diaries by date range
    *
    * @param {string} workspaceId - Workspace ID
-   * @param {Date} startDate - Start date
-   * @param {Date} endDate - End date
+   * @param {Date} _startDate - Start date (reserved for future implementation)
+   * @param {Date} _endDate - End date (reserved for future implementation)
    * @returns {Observable<Diary[]>} Array of diaries
    */
-  findByDateRange(workspaceId: string, startDate: Date, endDate: Date): Observable<Diary[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  findByDateRange(workspaceId: string, _startDate: Date, _endDate: Date): Observable<Diary[]> {
     // Note: Date range filtering requires custom implementation
     // For now, fetch all and filter client-side
     return this.findByWorkspace(workspaceId);

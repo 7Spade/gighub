@@ -3,6 +3,7 @@
  *
  * Tree view for tasks using NzTreeViewModule
  * Displays unlimited depth hierarchy with all task info
+ * Aligned with SETC-05 specification
  *
  * @module features/blueprint/ui/task/task-tree
  */
@@ -20,8 +21,6 @@ import {
   getChildren,
   getStatusColor,
   getStatusText,
-  formatLevel,
-  getLevelColor,
   formatProgress,
   getProgressStatus,
   formatAssigneeInitials
@@ -66,7 +65,7 @@ export class TaskTreeComponent {
     node => node.expandable
   );
 
-  /** Tree flattener */
+  /** Tree flattener - Aligned with SETC-05 */
   private readonly transformer = (task: Task, level: number): TaskFlatNode => {
     const children = getChildren(this.childrenMap(), task.id);
     return {
@@ -74,15 +73,14 @@ export class TaskTreeComponent {
       name: task.name,
       level,
       expandable: children.length > 0,
-      childCount: task.childCount,
       status: task.status,
       progress: task.progress,
-      completedCount: task.completedCount,
-      totalCount: task.totalCount,
-      assigneeIds: task.assigneeIds,
+      assigneeId: task.assigneeId,
+      reviewerId: task.reviewerId,
       area: task.area,
       tags: task.tags,
       priority: task.priority,
+      taskType: task.taskType,
       task
     };
   };
@@ -104,8 +102,6 @@ export class TaskTreeComponent {
   /** Utility methods exposed to template */
   getStatusColor = getStatusColor;
   getStatusText = getStatusText;
-  formatLevel = formatLevel;
-  getLevelColor = getLevelColor;
   formatProgress = formatProgress;
   getProgressStatus = getProgressStatus;
   formatAssigneeInitials = formatAssigneeInitials;
