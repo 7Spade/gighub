@@ -1,0 +1,151 @@
+@import '@delon/theme/index';
+
+// Dashboard Shell Styles
+
+.dashboard-row {
+  margin-bottom: 24px;
+}
+
+// Statistics Card Styles
+.stat-card {
+  .stat-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .stat-title {
+    color: @text-color-secondary;
+    font-size: 14px;
+  }
+
+  .stat-info {
+    margin-left: 8px;
+    color: @text-color-secondary;
+    cursor: pointer;
+    
+    &:hover {
+      color: @primary-color;
+    }
+  }
+
+  .stat-value {
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 38px;
+    color: @text-color;
+    margin-bottom: 16px;
+
+    &--primary {
+      color: @primary-color;
+    }
+
+    &--success {
+      color: @success-color;
+    }
+
+    &--danger {
+      color: @error-color;
+    }
+  }
+
+  .stat-chart {
+    margin-bottom: 16px;
+  }
+
+  .stat-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid @border-color-split;
+    margin-top: auto;
+    
+    .trend-value {
+      margin-left: 4px;
+    }
+  }
+
+  .stat-label {
+    color: @text-color-secondary;
+    font-size: 12px;
+  }
+}
+
+// Quick Links Styles
+.quick-links {
+  .quick-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 0;
+    cursor: pointer;
+    border-radius: @border-radius-base;
+    transition: all 0.3s;
+
+    &:hover {
+      background-color: @background-color-light;
+      
+      .quick-link__icon {
+        color: @primary-color;
+        transform: scale(1.1);
+      }
+    }
+
+    &__icon {
+      font-size: 28px;
+      color: @text-color-secondary;
+      margin-bottom: 8px;
+      transition: all 0.3s;
+    }
+
+    &__text {
+      font-size: 12px;
+      color: @text-color;
+    }
+  }
+}
+
+// Team Member Styles
+.member-item {
+  cursor: pointer;
+  transition: background-color 0.3s;
+
+  &:hover {
+    background-color: @background-color-light;
+  }
+}
+
+// Activity Styles
+.activity-item {
+  .activity-user {
+    font-weight: 500;
+    color: @text-color;
+  }
+
+  .activity-action {
+    margin: 0 8px;
+    color: @text-color-secondary;
+  }
+
+  .activity-target {
+    color: @primary-color;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .activity-time {
+    color: @text-color-secondary;
+    font-size: 12px;
+  }
+}
+
+// Responsive Adjustments
+@media screen and (max-width: @screen-md) {
+  .stat-card .stat-value {
+    font-size: 24px;
+  }
+}

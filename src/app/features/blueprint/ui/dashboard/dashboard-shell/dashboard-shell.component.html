@@ -1,0 +1,183 @@
+<!-- Dashboard Shell Template -->
+<page-header></page-header>
+
+<nz-spin [nzSpinning]="loading()">
+  <!-- Overview Statistics Cards -->
+  <div nz-row [nzGutter]="24" class="dashboard-row">
+    <!-- Total Tasks Card -->
+    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" [nzLg]="6">
+      <nz-card [nzBordered]="false" [nzBodyStyle]="{ padding: '20px 24px 8px 24px' }">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">任務總數</span>
+            <nz-tooltip nzTitle="所有任務總計">
+              <span nz-icon nzType="info-circle" nzTheme="outline" class="stat-info"></span>
+            </nz-tooltip>
+          </div>
+          <div class="stat-value">{{ taskStats().total }}</div>
+          <div class="stat-footer">
+            <trend [flag]="'up'">
+              <span>日增</span>
+              <span class="trend-value">12%</span>
+            </trend>
+            <span class="stat-label">本週新增 23 項</span>
+          </div>
+        </div>
+      </nz-card>
+    </div>
+
+    <!-- In Progress Tasks Card -->
+    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" [nzLg]="6">
+      <nz-card [nzBordered]="false" [nzBodyStyle]="{ padding: '20px 24px 8px 24px' }">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">進行中</span>
+            <nz-tooltip nzTitle="正在執行的任務">
+              <span nz-icon nzType="info-circle" nzTheme="outline" class="stat-info"></span>
+            </nz-tooltip>
+          </div>
+          <div class="stat-value stat-value--primary">{{ taskStats().inProgress }}</div>
+          <g2-mini-bar height="45" [data]="progressTrendData()" class="stat-chart"></g2-mini-bar>
+        </div>
+      </nz-card>
+    </div>
+
+    <!-- Completion Rate Card -->
+    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" [nzLg]="6">
+      <nz-card [nzBordered]="false" [nzBodyStyle]="{ padding: '20px 24px 8px 24px' }">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">完成率</span>
+            <nz-tooltip nzTitle="已完成任務佔比">
+              <span nz-icon nzType="info-circle" nzTheme="outline" class="stat-info"></span>
+            </nz-tooltip>
+          </div>
+          <div class="stat-value stat-value--success">{{ completionRate() }}%</div>
+          <g2-mini-progress percent="completionRate()" color="#52c41a" strokeWidth="8" target="85"></g2-mini-progress>
+          <div class="stat-footer">
+            <span class="stat-label">目標: 85%</span>
+          </div>
+        </div>
+      </nz-card>
+    </div>
+
+    <!-- Overdue Tasks Card -->
+    <div nz-col [nzXs]="24" [nzSm]="12" [nzMd]="12" [nzLg]="6">
+      <nz-card [nzBordered]="false" [nzBodyStyle]="{ padding: '20px 24px 8px 24px' }">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">逾期任務</span>
+            <nz-tooltip nzTitle="已逾期的任務數量">
+              <span nz-icon nzType="info-circle" nzTheme="outline" class="stat-info"></span>
+            </nz-tooltip>
+          </div>
+          <div class="stat-value stat-value--danger">{{ taskStats().overdue }}</div>
+          <div class="stat-footer">
+            <trend [flag]="'down'">
+              <span>較上週</span>
+              <span class="trend-value">-2</span>
+            </trend>
+            <span class="stat-label">需要關注</span>
+          </div>
+        </div>
+      </nz-card>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div nz-row [nzGutter]="24" class="dashboard-row">
+    <!-- Task Progress Pie Chart -->
+    <div nz-col [nzXs]="24" [nzMd]="24" [nzLg]="12">
+      <nz-card nzTitle="任務進度分佈" [nzBordered]="false" [nzExtra]="taskProgressExtra">
+        <ng-template #taskProgressExtra>
+          <a (click)="onViewAllTasks()">查看全部</a>
+        </ng-template>
+        <g2-pie
+          [hasLegend]="true"
+          title="任務數"
+          subTitle="總計"
+          [total]="taskStats().total.toString()"
+          [data]="taskProgressData()"
+          [colors]="['#faad14', '#1890ff', '#52c41a', '#ff4d4f']"
+          height="280"
+          [lineWidth]="2"
+        ></g2-pie>
+      </nz-card>
+    </div>
+
+    <!-- Progress Trend Area Chart -->
+    <div nz-col [nzXs]="24" [nzMd]="24" [nzLg]="12">
+      <nz-card nzTitle="近兩週完成趨勢" [nzBordered]="false" [nzExtra]="trendExtra">
+        <ng-template #trendExtra>
+          <nz-radio-group nzSize="small" [(ngModel)]="selectedTrendPeriod">
+            <label nz-radio-button nzValue="week">本週</label>
+            <label nz-radio-button nzValue="month">本月</label>
+          </nz-radio-group>
+        </ng-template>
+        <g2-mini-area height="280" [line]="true" [data]="progressTrendData()" color="#1890ff"></g2-mini-area>
+      </nz-card>
+    </div>
+  </div>
+
+  <!-- Quick Access & Activities Row -->
+  <div nz-row [nzGutter]="24" class="dashboard-row">
+    <!-- Quick Access Links -->
+    <div nz-col [nzXs]="24" [nzMd]="24" [nzLg]="8">
+      <nz-card nzTitle="快速操作" [nzBordered]="false">
+        <div nz-row [nzGutter]="[24, 24]" class="quick-links">
+          @for (link of quickLinks; track link.action) {
+            <div nz-col [nzSpan]="8">
+              <div class="quick-link" (click)="onQuickLinkClick(link.action)">
+                <span nz-icon [nzType]="link.icon" nzTheme="outline" class="quick-link__icon"></span>
+                <span class="quick-link__text">{{ link.title }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </nz-card>
+
+      <!-- Team Members -->
+      <nz-card nzTitle="團隊成員" [nzBordered]="false" class="mt-md">
+        <nz-list [nzDataSource]="teamMembers" nzSize="small">
+          @for (member of teamMembers; track trackByMember($index, member)) {
+            <nz-list-item (click)="onMemberClick(member)" class="member-item">
+              <nz-list-item-meta
+                [nzAvatar]="member.avatar"
+                [nzTitle]="member.name"
+                [nzDescription]="member.role"
+              ></nz-list-item-meta>
+            </nz-list-item>
+          }
+        </nz-list>
+      </nz-card>
+    </div>
+
+    <!-- Recent Activities -->
+    <div nz-col [nzXs]="24" [nzMd]="24" [nzLg]="16">
+      <nz-card nzTitle="最近動態" [nzBordered]="false" [nzExtra]="activityExtra">
+        <ng-template #activityExtra>
+          <a (click)="onViewAllActivities()">查看全部</a>
+        </ng-template>
+        <nz-list [nzDataSource]="recentActivities()" [nzRenderItem]="activityItem" nzSize="large">
+          <ng-template #activityItem let-activity>
+            <nz-list-item class="activity-item">
+              <nz-list-item-meta>
+                <nz-list-item-meta-avatar>
+                  <nz-avatar [nzSrc]="activity.user.avatar"></nz-avatar>
+                </nz-list-item-meta-avatar>
+                <nz-list-item-meta-title>
+                  <span class="activity-user">{{ activity.user.name }}</span>
+                  <span class="activity-action">{{ activity.action }}</span>
+                  <a class="activity-target">{{ activity.target }}</a>
+                </nz-list-item-meta-title>
+                <nz-list-item-meta-description>
+                  <span class="activity-time">{{ getTimeAgo(activity.time) }}</span>
+                </nz-list-item-meta-description>
+              </nz-list-item-meta>
+            </nz-list-item>
+          </ng-template>
+        </nz-list>
+      </nz-card>
+    </div>
+  </div>
+</nz-spin>
