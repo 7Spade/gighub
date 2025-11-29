@@ -253,7 +253,7 @@ CREATE TRIGGER trg_add_creator_as_org_owner
   WHEN (NEW.type = 'Organization')
   EXECUTE FUNCTION public.add_creator_as_org_owner();
 
-COMMIT;
+
 
 -- ============================================================================
 -- ENABLE RLS ON ALL RELEVANT TABLES
