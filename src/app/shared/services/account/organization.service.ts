@@ -113,7 +113,8 @@ export class OrganizationService {
    * @throws {Error} If user is not authenticated, user account not found, or creation fails
    */
   async createOrganization(request: CreateOrganizationRequest): Promise<OrganizationBusinessModel> {
-    // 1. 獲取當前用戶的 auth_user_id
+    // 1. 驗證用戶已登入
+    // Verify user is authenticated
     const user = await this.supabaseService.getUser();
     if (!user || !user.id) {
       throw new Error('User not authenticated');
@@ -126,15 +127,16 @@ export class OrganizationService {
       throw new Error('User account not found');
     }
 
-    // 3. 創建組織（觸發器會自動將創建者添加為 owner）
-    // Create organization (trigger will automatically add creator as owner)
-    // auth_user_id: Set to creator's auth.uid() to satisfy SELECT policy after INSERT
+    // 3. 創建組織
+    // Create organization
+    // Note: auth_user_id is automatically set by the database trigger (set_auth_user_id_trigger)
+    // The trigger ensures auth_user_id = auth.uid() and cannot be spoofed by the client
     const insertData = {
       name: request.name,
       email: request.email || null,
       avatar_url: request.avatar || null,
-      status: request.status || AccountStatus.ACTIVE,
-      auth_user_id: user.id // Required for SELECT policy to return newly created org
+      status: request.status || AccountStatus.ACTIVE
+      // auth_user_id: Automatically set by BEFORE INSERT trigger
     };
 
     const organization = await firstValueFrom(this.organizationRepo.create(insertData));
