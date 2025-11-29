@@ -31,7 +31,7 @@ brew install supabase/tap/supabase
 curl -sSL https://cli.supabase.io | bash
 
 # 連結到專案
-supabase link --project-ref xxycyrsgzjlphohqjpsh
+supabase link --project-ref hbiihihbbicwktdtgcqc
 
 # 執行遷移
 supabase db push
