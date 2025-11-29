@@ -10,9 +10,9 @@
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
+import { AuthContextService } from '@core';
 import { firstValueFrom } from 'rxjs';
 
-import { AuthContextService } from '@core';
 import { BlueprintModel, CreateBlueprintRequest, UpdateBlueprintRequest, BlueprintStatistics, BlueprintStatusEnum } from '../../domain';
 import { BlueprintRepository } from '../repositories';
 
