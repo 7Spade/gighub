@@ -8,11 +8,90 @@
 -- - Follows the pattern established in get_user_account_id()
 -- - Blueprint visibility: private, internal, public
 -- - Blueprint status: draft, active, archived, deleted
+--
+-- IMPORTANT: Tables must be created BEFORE helper functions that reference them
 
 BEGIN;
 
 -- ============================================================================
--- CREATE BLUEPRINT HELPER FUNCTIONS
+-- CREATE BLUEPRINTS TABLE (FIRST)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.blueprints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  slug VARCHAR(100),
+  status TEXT DEFAULT 'active' NOT NULL CHECK (status IN ('draft', 'active', 'archived', 'deleted')),
+  visibility TEXT DEFAULT 'private' NOT NULL CHECK (visibility IN ('private', 'internal', 'public')),
+  category TEXT CHECK (category IN ('construction', 'renovation', 'maintenance', 'inspection', 'other')),
+  settings JSONB DEFAULT '{}' NOT NULL,
+  metadata JSONB DEFAULT '{}' NOT NULL,
+  cover_image_url TEXT,
+  created_by UUID NOT NULL REFERENCES public.accounts(id),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (owner_id, slug)
+);
+
+COMMENT ON TABLE public.blueprints IS
+'Blueprints are logical containers providing data isolation for workspaces.
+Each blueprint belongs to an owner (user, organization, or team).
+Status: draft, active, archived, deleted. Visibility: private, internal, public.';
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_blueprints_owner_id ON public.blueprints(owner_id);
+CREATE INDEX IF NOT EXISTS idx_blueprints_status ON public.blueprints(status) WHERE status != 'deleted';
+CREATE INDEX IF NOT EXISTS idx_blueprints_visibility ON public.blueprints(visibility);
+CREATE INDEX IF NOT EXISTS idx_blueprints_slug ON public.blueprints(slug);
+CREATE INDEX IF NOT EXISTS idx_blueprints_created_by ON public.blueprints(created_by);
+
+-- Create trigger for updated_at
+DROP TRIGGER IF EXISTS update_blueprints_updated_at ON public.blueprints;
+CREATE TRIGGER update_blueprints_updated_at
+  BEFORE UPDATE ON public.blueprints
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+-- ============================================================================
+-- CREATE BLUEPRINT_MEMBERS TABLE (SECOND)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.blueprint_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  blueprint_id UUID NOT NULL REFERENCES public.blueprints(id) ON DELETE CASCADE,
+  account_id UUID REFERENCES public.accounts(id) ON DELETE CASCADE,
+  auth_user_id UUID,
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  business_role TEXT,
+  joined_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  invited_by UUID REFERENCES public.accounts(id),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  UNIQUE (blueprint_id, account_id)
+);
+
+COMMENT ON TABLE public.blueprint_members IS
+'Blueprint membership with owner, admin, member, viewer roles.
+auth_user_id is used for direct RLS checks to avoid recursion.';
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_blueprint_members_blueprint_id ON public.blueprint_members(blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_blueprint_members_account_id ON public.blueprint_members(account_id);
+CREATE INDEX IF NOT EXISTS idx_blueprint_members_auth_user_id ON public.blueprint_members(auth_user_id);
+CREATE INDEX IF NOT EXISTS idx_blueprint_members_role ON public.blueprint_members(role);
+
+-- Create trigger for updated_at
+DROP TRIGGER IF EXISTS update_blueprint_members_updated_at ON public.blueprint_members;
+CREATE TRIGGER update_blueprint_members_updated_at
+  BEFORE UPDATE ON public.blueprint_members
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+-- ============================================================================
+-- CREATE BLUEPRINT HELPER FUNCTIONS (THIRD - after tables exist)
 -- ============================================================================
 
 -- Function to check if user is a blueprint member
@@ -99,81 +178,6 @@ REVOKE EXECUTE ON FUNCTION public.is_blueprint_owner(UUID) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.is_blueprint_owner(UUID) FROM public;
 
 -- ============================================================================
--- CREATE BLUEPRINTS TABLE
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.blueprints (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  slug VARCHAR(100),
-  status TEXT DEFAULT 'active' NOT NULL CHECK (status IN ('draft', 'active', 'archived', 'deleted')),
-  visibility TEXT DEFAULT 'private' NOT NULL CHECK (visibility IN ('private', 'internal', 'public')),
-  category TEXT CHECK (category IN ('construction', 'renovation', 'maintenance', 'inspection', 'other')),
-  settings JSONB DEFAULT '{}' NOT NULL,
-  metadata JSONB DEFAULT '{}' NOT NULL,
-  cover_image_url TEXT,
-  created_by UUID NOT NULL REFERENCES public.accounts(id),
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  deleted_at TIMESTAMPTZ,
-  UNIQUE (owner_id, slug)
-);
-
-COMMENT ON TABLE public.blueprints IS
-'Blueprints are logical containers providing data isolation for workspaces.
-Each blueprint belongs to an owner (user, organization, or team).
-Status: draft, active, archived, deleted. Visibility: private, internal, public.';
-
--- Create indexes
-CREATE INDEX idx_blueprints_owner_id ON public.blueprints(owner_id);
-CREATE INDEX idx_blueprints_status ON public.blueprints(status) WHERE status != 'deleted';
-CREATE INDEX idx_blueprints_visibility ON public.blueprints(visibility);
-CREATE INDEX idx_blueprints_slug ON public.blueprints(slug);
-CREATE INDEX idx_blueprints_created_by ON public.blueprints(created_by);
-
--- Create trigger for updated_at
-CREATE TRIGGER update_blueprints_updated_at
-  BEFORE UPDATE ON public.blueprints
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at_column();
-
--- ============================================================================
--- CREATE BLUEPRINT_MEMBERS TABLE
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.blueprint_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  blueprint_id UUID NOT NULL REFERENCES public.blueprints(id) ON DELETE CASCADE,
-  account_id UUID REFERENCES public.accounts(id) ON DELETE CASCADE,
-  auth_user_id UUID,
-  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
-  business_role TEXT,
-  joined_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  invited_by UUID REFERENCES public.accounts(id),
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  UNIQUE (blueprint_id, account_id)
-);
-
-COMMENT ON TABLE public.blueprint_members IS
-'Blueprint membership with owner, admin, member, viewer roles.
-auth_user_id is used for direct RLS checks to avoid recursion.';
-
--- Create indexes
-CREATE INDEX idx_blueprint_members_blueprint_id ON public.blueprint_members(blueprint_id);
-CREATE INDEX idx_blueprint_members_account_id ON public.blueprint_members(account_id);
-CREATE INDEX idx_blueprint_members_auth_user_id ON public.blueprint_members(auth_user_id);
-CREATE INDEX idx_blueprint_members_role ON public.blueprint_members(role);
-
--- Create trigger for updated_at
-CREATE TRIGGER update_blueprint_members_updated_at
-  BEFORE UPDATE ON public.blueprint_members
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at_column();
-
--- ============================================================================
 -- AUTO-ADD CREATOR AS BLUEPRINT OWNER
 -- ============================================================================
 
@@ -233,6 +237,19 @@ CREATE TRIGGER add_blueprint_creator_as_owner_trigger
 
 ALTER TABLE public.blueprints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.blueprint_members ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- DROP EXISTING POLICIES (for clean re-application)
+-- ============================================================================
+
+DROP POLICY IF EXISTS "blueprint_members_can_view" ON public.blueprints;
+DROP POLICY IF EXISTS "authenticated_users_create_blueprints" ON public.blueprints;
+DROP POLICY IF EXISTS "blueprint_admins_update" ON public.blueprints;
+DROP POLICY IF EXISTS "blueprint_owners_delete" ON public.blueprints;
+DROP POLICY IF EXISTS "blueprint_members_view" ON public.blueprint_members;
+DROP POLICY IF EXISTS "blueprint_admins_add_members" ON public.blueprint_members;
+DROP POLICY IF EXISTS "blueprint_admins_update_members" ON public.blueprint_members;
+DROP POLICY IF EXISTS "blueprint_admins_remove_members" ON public.blueprint_members;
 
 -- ============================================================================
 -- BLUEPRINTS RLS POLICIES

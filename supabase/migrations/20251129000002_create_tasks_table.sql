@@ -50,14 +50,14 @@ Status: pending, in_progress, in_review, completed, cancelled, blocked.
 Priority: lowest, low, medium, high, highest.';
 
 -- Create indexes
-CREATE INDEX idx_tasks_blueprint_id ON public.tasks(blueprint_id);
-CREATE INDEX idx_tasks_parent_id ON public.tasks(parent_id);
-CREATE INDEX idx_tasks_assignee_id ON public.tasks(assignee_id);
-CREATE INDEX idx_tasks_reviewer_id ON public.tasks(reviewer_id);
-CREATE INDEX idx_tasks_status ON public.tasks(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_tasks_due_date ON public.tasks(due_date) WHERE deleted_at IS NULL;
-CREATE INDEX idx_tasks_sort_order ON public.tasks(blueprint_id, parent_id, sort_order);
-CREATE INDEX idx_tasks_created_by ON public.tasks(created_by);
+CREATE INDEX IF NOT EXISTS idx_tasks_blueprint_id ON public.tasks(blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON public.tasks(parent_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee_id ON public.tasks(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_reviewer_id ON public.tasks(reviewer_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON public.tasks(due_date) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON public.tasks(blueprint_id, parent_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON public.tasks(created_by);
 
 -- Create trigger for updated_at
 CREATE TRIGGER update_tasks_updated_at
@@ -92,8 +92,8 @@ COMMENT ON TABLE public.task_attachments IS
 attachment_type: general, completion_photo, reference, issue_evidence.';
 
 -- Create indexes
-CREATE INDEX idx_task_attachments_task_id ON public.task_attachments(task_id);
-CREATE INDEX idx_task_attachments_attachment_type ON public.task_attachments(attachment_type);
+CREATE INDEX IF NOT EXISTS idx_task_attachments_task_id ON public.task_attachments(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_attachments_attachment_type ON public.task_attachments(attachment_type);
 
 -- ============================================================================
 -- CREATE CHECKLISTS TABLE
@@ -114,7 +114,7 @@ COMMENT ON TABLE public.checklists IS
 'Checklist templates for task acceptance/QA processes.';
 
 -- Create indexes
-CREATE INDEX idx_checklists_blueprint_id ON public.checklists(blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_checklists_blueprint_id ON public.checklists(blueprint_id);
 
 -- Create trigger for updated_at
 CREATE TRIGGER update_checklists_updated_at
@@ -140,7 +140,7 @@ COMMENT ON TABLE public.checklist_items IS
 'Individual items within a checklist.';
 
 -- Create indexes
-CREATE INDEX idx_checklist_items_checklist_id ON public.checklist_items(checklist_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_items_checklist_id ON public.checklist_items(checklist_id);
 
 -- ============================================================================
 -- CREATE TASK_ACCEPTANCES TABLE
@@ -163,11 +163,12 @@ COMMENT ON TABLE public.task_acceptances IS
 'Task acceptance/QA records. Status: pending, passed, failed, conditional.';
 
 -- Create indexes
-CREATE INDEX idx_task_acceptances_task_id ON public.task_acceptances(task_id);
-CREATE INDEX idx_task_acceptances_status ON public.task_acceptances(status);
-CREATE INDEX idx_task_acceptances_inspector_id ON public.task_acceptances(inspector_id);
+CREATE INDEX IF NOT EXISTS idx_task_acceptances_task_id ON public.task_acceptances(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_acceptances_status ON public.task_acceptances(status);
+CREATE INDEX IF NOT EXISTS idx_task_acceptances_inspector_id ON public.task_acceptances(inspector_id);
 
 -- Create trigger for updated_at
+DROP TRIGGER IF EXISTS update_task_acceptances_updated_at ON public.task_acceptances;
 CREATE TRIGGER update_task_acceptances_updated_at
   BEFORE UPDATE ON public.task_acceptances
   FOR EACH ROW
@@ -182,6 +183,39 @@ ALTER TABLE public.task_attachments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.checklists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.checklist_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_acceptances ENABLE ROW LEVEL SECURITY;
+-- ============================================================================
+-- DROP EXISTING POLICIES (for clean re-application)
+-- ============================================================================
+
+-- Tasks policies
+DROP POLICY IF EXISTS "blueprint_members_view_tasks" ON public.tasks;
+DROP POLICY IF EXISTS "blueprint_members_create_tasks" ON public.tasks;
+DROP POLICY IF EXISTS "blueprint_members_update_tasks" ON public.tasks;
+DROP POLICY IF EXISTS "blueprint_admins_delete_tasks" ON public.tasks;
+
+-- Task attachments policies
+DROP POLICY IF EXISTS "task_access_view_attachments" ON public.task_attachments;
+DROP POLICY IF EXISTS "task_access_create_attachments" ON public.task_attachments;
+DROP POLICY IF EXISTS "task_access_delete_attachments" ON public.task_attachments;
+
+-- Checklists policies
+DROP POLICY IF EXISTS "blueprint_members_view_checklists" ON public.checklists;
+DROP POLICY IF EXISTS "blueprint_admins_create_checklists" ON public.checklists;
+DROP POLICY IF EXISTS "blueprint_admins_update_checklists" ON public.checklists;
+DROP POLICY IF EXISTS "blueprint_admins_delete_checklists" ON public.checklists;
+
+-- Checklist items policies
+DROP POLICY IF EXISTS "checklist_access_view_items" ON public.checklist_items;
+DROP POLICY IF EXISTS "checklist_admins_create_items" ON public.checklist_items;
+DROP POLICY IF EXISTS "checklist_admins_update_items" ON public.checklist_items;
+DROP POLICY IF EXISTS "checklist_admins_delete_items" ON public.checklist_items;
+
+-- Task acceptances policies
+DROP POLICY IF EXISTS "task_access_view_acceptances" ON public.task_acceptances;
+DROP POLICY IF EXISTS "task_access_create_acceptances" ON public.task_acceptances;
+DROP POLICY IF EXISTS "task_access_update_acceptances" ON public.task_acceptances;
+DROP POLICY IF EXISTS "task_admins_delete_acceptances" ON public.task_acceptances;
+
 
 -- ============================================================================
 -- TASKS RLS POLICIES
