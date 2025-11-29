@@ -72,3 +72,5 @@ yarn-error.log
 
 # Awesome Copilot source directory (extracted resources are kept in .github/)
 /awesome-copilot-main
+dist/
+node_modules/
