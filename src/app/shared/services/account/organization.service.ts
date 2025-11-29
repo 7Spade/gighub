@@ -132,7 +132,8 @@ export class OrganizationService {
     const insertData = {
       name: request.name,
       email: request.email || null,
-      avatar: request.avatar || null,
+      // DB column is `avatar_url`; map the DTO `avatar` to `avatar_url` to match schema
+      avatar_url: request.avatar || null,
       status: request.status || AccountStatus.ACTIVE,
       auth_user_id: user.id // Required for SELECT policy to return newly created org
     };
@@ -155,7 +156,14 @@ export class OrganizationService {
    * @returns {Promise<OrganizationBusinessModel>} Updated organization
    */
   async updateOrganization(id: string, request: UpdateOrganizationRequest): Promise<OrganizationBusinessModel> {
-    const account = await firstValueFrom(this.organizationRepo.update(id, request as any));
+    // Map `avatar` field from DTO to `avatar_url` DB column if present
+    const updatePayload: any = { ...request } as any;
+    if ((request as any).avatar !== undefined) {
+      updatePayload.avatar_url = (request as any).avatar;
+      delete updatePayload.avatar;
+    }
+
+    const account = await firstValueFrom(this.organizationRepo.update(id, updatePayload as any));
     return account as OrganizationBusinessModel;
   }
 
