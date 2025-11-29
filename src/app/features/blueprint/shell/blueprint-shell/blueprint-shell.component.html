@@ -1,102 +1,182 @@
 <!--
   Blueprint Shell Template
   
-  Main container for blueprint modules
-  Provides navigation and context display
+  Modern UX skeleton for blueprint modules
+  Features:
+  - Breadcrumb navigation
+  - Blueprint header with key info and actions
+  - Tabbed navigation for modules
+  - Quick action cards
+  - Responsive design
 -->
-
-<page-header [title]="'藍圖容器'">
-  <ng-template #action>
-    <button nz-button nzType="default" (click)="navigateToModule('task')">
-      <i nz-icon nzType="project" nzTheme="outline"></i>
-      任務模組
-    </button>
-    <!-- Future modules can be added here -->
-  </ng-template>
-</page-header>
 
 <!-- Loading State -->
 @if (loading()) {
-  <nz-spin nzSimple [nzSize]="'large'"></nz-spin>
+  <div class="blueprint-loading">
+    <nz-spin nzSimple [nzSize]="'large'"></nz-spin>
+    <p class="loading-text">載入藍圖中...</p>
+  </div>
 }
 
 <!-- Error State -->
 @if (error()) {
-  <nz-alert
-    nzType="error"
-    [nzMessage]="'載入失敗'"
-    [nzDescription]="error()"
-    nzShowIcon
-  ></nz-alert>
+  <nz-result
+    nzStatus="error"
+    nzTitle="載入失敗"
+    [nzSubTitle]="error() || '發生未知錯誤'">
+    <div nz-result-extra>
+      <button nz-button nzType="primary" (click)="retryLoad()">
+        <i nz-icon nzType="reload" nzTheme="outline"></i>
+        重新載入
+      </button>
+      <button nz-button (click)="goBack()">
+        <i nz-icon nzType="arrow-left" nzTheme="outline"></i>
+        返回列表
+      </button>
+    </div>
+  </nz-result>
 }
 
-<!-- Blueprint Info -->
-@if (selectedBlueprint()) {
-  <nz-card [nzTitle]="'藍圖資訊'" class="mb-md">
-    <nz-descriptions [nzColumn]="2" nzBordered>
-      <nz-descriptions-item [nzTitle]="'名稱'">
-        {{ selectedBlueprint()?.name }}
-      </nz-descriptions-item>
-      <nz-descriptions-item [nzTitle]="'類別'">
-        {{ selectedBlueprint()?.category }}
-      </nz-descriptions-item>
-      <nz-descriptions-item [nzTitle]="'描述'" [nzSpan]="2">
-        {{ selectedBlueprint()?.description }}
-      </nz-descriptions-item>
-      <nz-descriptions-item [nzTitle]="'可見性'">
-        <nz-badge 
-          [nzStatus]="selectedBlueprint()?.visibility === 'public' ? 'success' : 'default'" 
-          [nzText]="selectedBlueprint()?.visibility">
-        </nz-badge>
-      </nz-descriptions-item>
-      <nz-descriptions-item [nzTitle]="'狀態'">
-        <nz-badge 
-          [nzStatus]="selectedBlueprint()?.status === 'published' ? 'processing' : 'default'" 
-          [nzText]="selectedBlueprint()?.status">
-        </nz-badge>
-      </nz-descriptions-item>
-    </nz-descriptions>
+<!-- Blueprint Content -->
+@if (!loading() && !error()) {
+  <!-- Breadcrumb Navigation -->
+  <nz-breadcrumb class="blueprint-breadcrumb">
+    <nz-breadcrumb-item>
+      <a routerLink="/blueprint/list">
+        <i nz-icon nzType="home" nzTheme="outline"></i>
+        <span>藍圖列表</span>
+      </a>
+    </nz-breadcrumb-item>
+    @if (selectedBlueprint()) {
+      <nz-breadcrumb-item>
+        <i nz-icon nzType="container" nzTheme="outline"></i>
+        <span>{{ selectedBlueprint()?.name }}</span>
+      </nz-breadcrumb-item>
+    }
+    @if (activeModule()) {
+      <nz-breadcrumb-item>
+        <i nz-icon [nzType]="getModuleIcon(activeModule())" nzTheme="outline"></i>
+        <span>{{ getModuleLabel(activeModule()) }}</span>
+      </nz-breadcrumb-item>
+    }
+  </nz-breadcrumb>
+
+  <!-- Blueprint Header Card -->
+  <nz-card class="blueprint-header-card mb-md" [nzBordered]="false">
+    <div class="blueprint-header">
+      <!-- Blueprint Avatar/Icon -->
+      <div class="blueprint-avatar">
+        <nz-avatar [nzSize]="64" [nzIcon]="'container'" nzShape="square" style="background-color: #1890ff;"></nz-avatar>
+      </div>
+
+      <!-- Blueprint Info -->
+      <div class="blueprint-info">
+        <div class="blueprint-title-row">
+          <h2 class="blueprint-title">{{ selectedBlueprint()?.name || '未選擇藍圖' }}</h2>
+          @if (selectedBlueprint()?.status) {
+            <nz-tag [nzColor]="getStatusColor(selectedBlueprint()?.status || '')">
+              {{ getStatusLabel(selectedBlueprint()?.status || '') }}
+            </nz-tag>
+          }
+          @if (selectedBlueprint()?.visibility) {
+            <nz-tag [nzColor]="getVisibilityColor(selectedBlueprint()?.visibility || '')">
+              <i nz-icon [nzType]="selectedBlueprint()?.visibility === 'public' ? 'global' : 'lock'" nzTheme="outline"></i>
+              {{ getVisibilityLabel(selectedBlueprint()?.visibility || '') }}
+            </nz-tag>
+          }
+        </div>
+        <p class="blueprint-description">{{ selectedBlueprint()?.description || '暫無描述' }}</p>
+        <div class="blueprint-meta">
+          <span class="meta-item">
+            <i nz-icon nzType="calendar" nzTheme="outline"></i>
+            建立於 {{ selectedBlueprint()?.createdAt | date:'yyyy/MM/dd' }}
+          </span>
+          <nz-divider nzType="vertical"></nz-divider>
+          <span class="meta-item">
+            <i nz-icon nzType="edit" nzTheme="outline"></i>
+            更新於 {{ selectedBlueprint()?.updatedAt | date:'yyyy/MM/dd' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Blueprint Actions -->
+      <div class="blueprint-actions">
+        <button nz-button nzType="primary" (click)="openSettings()">
+          <i nz-icon nzType="setting" nzTheme="outline"></i>
+          設定
+        </button>
+        <button nz-button nz-dropdown [nzDropdownMenu]="moreMenu">
+          <i nz-icon nzType="more" nzTheme="outline"></i>
+        </button>
+        <nz-dropdown-menu #moreMenu="nzDropdownMenu">
+          <ul nz-menu>
+            <li nz-menu-item (click)="inviteMembers()">
+              <i nz-icon nzType="user-add" nzTheme="outline"></i>
+              邀請成員
+            </li>
+            <li nz-menu-item (click)="exportBlueprint()">
+              <i nz-icon nzType="export" nzTheme="outline"></i>
+              匯出藍圖
+            </li>
+            <li nz-menu-divider></li>
+            <li nz-menu-item nzDanger (click)="archiveBlueprint()">
+              <i nz-icon nzType="inbox" nzTheme="outline"></i>
+              歸檔藍圖
+            </li>
+          </ul>
+        </nz-dropdown-menu>
+      </div>
+    </div>
   </nz-card>
+
+  <!-- Module Navigation Tabs -->
+  <nz-card class="module-tabs-card mb-md" [nzBordered]="false" [nzBodyStyle]="{ padding: 0 }">
+    <nz-tabset 
+      nzType="card"
+      nzSize="large"
+      [nzSelectedIndex]="activeTabIndex()"
+      (nzSelectedIndexChange)="onTabChange($event)"
+      class="module-tabs">
+      @for (module of modules; track module.key) {
+        <nz-tab [nzTitle]="tabTitleTpl">
+          <ng-template #tabTitleTpl>
+            <div class="tab-title">
+              <i nz-icon [nzType]="module.icon" nzTheme="outline"></i>
+              <span>{{ module.label }}</span>
+              @if (module.badge) {
+                <nz-badge [nzCount]="module.badge" [nzOverflowCount]="99" nzSize="small"></nz-badge>
+              }
+            </div>
+          </ng-template>
+        </nz-tab>
+      }
+    </nz-tabset>
+  </nz-card>
+
+  <!-- Quick Actions Row (shown only on Dashboard) -->
+  @if (activeModule() === 'dashboard' || !activeModule()) {
+    <nz-row [nzGutter]="[16, 16]" class="quick-actions mb-md">
+      @for (action of quickActions; track action.key) {
+        <nz-col [nzXs]="12" [nzSm]="8" [nzMd]="6" [nzLg]="4">
+          <nz-card 
+            class="quick-action-card" 
+            [nzHoverable]="true" 
+            [nzBordered]="false"
+            (click)="onQuickAction(action.key)">
+            <div class="quick-action-content">
+              <div class="action-icon" [style.background-color]="action.color">
+                <i nz-icon [nzType]="action.icon" nzTheme="outline"></i>
+              </div>
+              <span class="action-label">{{ action.label }}</span>
+            </div>
+          </nz-card>
+        </nz-col>
+      }
+    </nz-row>
+  }
+
+  <!-- Module Content (Router Outlet) -->
+  <div class="module-content">
+    <router-outlet></router-outlet>
+  </div>
 }
-
-<!-- Context Switcher Placeholder -->
-<nz-card [nzTitle]="'上下文切換器'" class="mb-md">
-  <nz-alert
-    nzType="info"
-    nzMessage="上下文切換器整合"
-    nzDescription="此處將整合組織上下文切換器，用於切換不同藍圖容器的上下文"
-    nzShowIcon>
-  </nz-alert>
-</nz-card>
-
-<!-- Module Navigation -->
-<nz-card [nzTitle]="'可用模組'">
-  <nz-row [nzGutter]="16">
-    <nz-col [nzSpan]="8">
-      <nz-card 
-        nzHoverable 
-        [nzTitle]="'任務模組'"
-        (click)="navigateToModule('task')"
-        class="module-card">
-        <i nz-icon nzType="project" nzTheme="outline" class="module-icon"></i>
-        <p>管理無限層級的任務樹狀結構</p>
-        <nz-tag [nzColor]="'blue'">已實作</nz-tag>
-      </nz-card>
-    </nz-col>
-    <nz-col [nzSpan]="8">
-      <nz-card 
-        nzHoverable 
-        [nzTitle]="'未來模組'"
-        class="module-card disabled">
-        <i nz-icon nzType="inbox" nzTheme="outline" class="module-icon"></i>
-        <p>更多模組即將推出</p>
-        <nz-tag [nzColor]="'default'">規劃中</nz-tag>
-      </nz-card>
-    </nz-col>
-  </nz-row>
-</nz-card>
-
-<!-- Router Outlet for Child Routes -->
-<div class="blueprint-content">
-  <router-outlet></router-outlet>
-</div>

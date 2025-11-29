@@ -1,13 +1,294 @@
 /**
  * Blueprint Shell Component Styles
  *
- * Styles for blueprint shell container
+ * Modern UX skeleton styles for blueprint shell container
  */
+
+@import 'src/styles/theme';
 
 :host {
   display: block;
+  min-height: 100%;
 }
 
+// Loading State
+.blueprint-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+
+  .loading-text {
+    margin-top: 16px;
+    font-size: 14px;
+    color: rgb(0 0 0 / 45%);
+  }
+}
+
+// Breadcrumb Navigation
+.blueprint-breadcrumb {
+  margin-bottom: 16px;
+  padding: 8px 0;
+
+  i {
+    margin-right: 4px;
+  }
+}
+
+// Blueprint Header Card
+.blueprint-header-card {
+  border-radius: 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+  ::ng-deep .ant-card-body {
+    padding: 24px;
+  }
+}
+
+.blueprint-header {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .blueprint-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}
+
+.blueprint-avatar {
+  flex-shrink: 0;
+
+  ::ng-deep .ant-avatar {
+    border: 3px solid rgb(255 255 255 / 30%);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  }
+}
+
+.blueprint-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blueprint-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .blueprint-title-row {
+    justify-content: center;
+  }
+}
+
+.blueprint-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #fff;
+}
+
+.blueprint-description {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 85%);
+}
+
+.blueprint-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: rgb(255 255 255 / 75%);
+
+  .meta-item {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+
+    i {
+      font-size: 14px;
+    }
+  }
+
+  ::ng-deep .ant-divider-vertical {
+    background-color: rgb(255 255 255 / 30%);
+  }
+}
+
+@media (max-width: 768px) {
+  .blueprint-meta {
+    justify-content: center;
+  }
+}
+
+.blueprint-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+
+  button {
+    &.ant-btn-primary {
+      border-color: rgb(255 255 255 / 30%);
+      color: #fff;
+      background: rgb(255 255 255 / 20%);
+
+      &:hover {
+        border-color: rgb(255 255 255 / 40%);
+        background: rgb(255 255 255 / 30%);
+      }
+    }
+
+    &.ant-btn-default {
+      border-color: rgb(255 255 255 / 20%);
+      color: #fff;
+      background: rgb(255 255 255 / 10%);
+
+      &:hover {
+        border-color: rgb(255 255 255 / 30%);
+        background: rgb(255 255 255 / 20%);
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .blueprint-actions {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+// Module Tabs Card
+.module-tabs-card {
+  overflow: hidden;
+  border-radius: 8px;
+
+  ::ng-deep .ant-card-body {
+    padding: 0;
+  }
+}
+
+.module-tabs {
+  ::ng-deep {
+    .ant-tabs-nav {
+      margin-bottom: 0;
+      padding: 0 16px;
+      background: #fafafa;
+
+      &::before {
+        border-bottom: 1px solid #f0f0f0;
+      }
+    }
+
+    .ant-tabs-tab {
+      margin: 0;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px 8px 0 0;
+      background: transparent;
+
+      &:hover {
+        color: #1890ff;
+      }
+
+      &.ant-tabs-tab-active {
+        border: 1px solid #f0f0f0;
+        border-bottom-color: #fff;
+        background: #fff;
+
+        .ant-tabs-tab-btn {
+          color: #1890ff;
+        }
+      }
+    }
+
+    .ant-tabs-content-holder {
+      display: none;
+    }
+  }
+
+  .tab-title {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 14px;
+
+    i {
+      font-size: 16px;
+    }
+
+    ::ng-deep .ant-badge {
+      margin-left: 4px;
+    }
+  }
+}
+
+// Quick Actions
+.quick-actions {
+  // Grid row - no additional styles needed
+}
+
+.quick-action-card {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  }
+
+  ::ng-deep .ant-card-body {
+    padding: 16px;
+  }
+}
+
+.quick-action-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+}
+
+.action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 24px;
+  color: #fff;
+}
+
+.action-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(0 0 0 / 85%);
+}
+
+// Module Content
+.module-content {
+  margin-top: 16px;
+
+  ::ng-deep .ant-card {
+    border-radius: 8px;
+  }
+}
+
+// Legacy Module Card (can be removed if not needed)
 .module-card {
   cursor: pointer;
   text-align: center;
@@ -30,8 +311,8 @@
 
   .module-icon {
     margin-bottom: 16px;
-    color: #1890ff;
     font-size: 48px;
+    color: #1890ff;
   }
 
   p {
@@ -40,6 +321,7 @@
   }
 }
 
-.blueprint-content {
-  margin-top: 24px;
+// Utility classes
+.mb-md {
+  margin-bottom: 16px;
 }
