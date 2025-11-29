@@ -67,13 +67,13 @@ enabled = true
 ## 20-*: core domain (blueprints, tasks, diary, todos, etc.)
 ## 30-*: fixtures / mock data for development
 sql_paths = [
-	"./seeds/00-reference.sql",
-	"./seeds/10-auth.sql",
-	"./seeds/20-blueprints.sql",
-	"./seeds/21-tasks.sql",
-	"./seeds/22-diary.sql",
-	"./seeds/23-todo.sql",
-	"./seeds/30-fixtures.sql"
+	"./seeds/00_reset_tables.sql",
+	"./seeds/10_seed_base_accounts.sql",
+	"./seeds/20_seed_organizations.sql",
+	"./seeds/21_seed_teams.sql",
+	"./seeds/22_seed_blueprints.sql",
+	"./seeds/23_seed_tasks.sql",
+	"./seeds/30_seed_verify.sql"
 ]
 
 [db.network_restrictions]
