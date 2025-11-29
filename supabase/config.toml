@@ -60,7 +60,21 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seed.sql"]
+## Recommended: keep seeds split and ordered by dependency.
+## Example naming/ordering scheme:
+## 00-*: reference/lookups (enums, roles)
+## 10-*: auth/users
+## 20-*: core domain (blueprints, tasks, diary, todos, etc.)
+## 30-*: fixtures / mock data for development
+sql_paths = [
+	"./seeds/00-reference.sql",
+	"./seeds/10-auth.sql",
+	"./seeds/20-blueprints.sql",
+	"./seeds/21-tasks.sql",
+	"./seeds/22-diary.sql",
+	"./seeds/23-todo.sql",
+	"./seeds/30-fixtures.sql"
+]
 
 [db.network_restrictions]
 # Enable management of network restrictions.
