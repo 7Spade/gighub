@@ -17,9 +17,9 @@ export const environment = {
   supabase: {
     // Supabase project configuration
     // For setup instructions, see: docs/SUPABASE_SETUP.md
-    url: 'https://nmowbrizwqqujcyencix.supabase.co',
+    url: 'https://bliuahijoulbweobzkbp.supabase.co',
     anonKey:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tb3dicml6d3FxdWpjeWVuY2l4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0Nzc2MDIsImV4cCI6MjA4MDA1MzYwMn0.6a6gpJLKscKmRih-C66jNgBheRWjLZU8ZTXMZjAhUxQ',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsaXVhaGlqb3VsYndlb2J6a2JwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0ODA5MjIsImV4cCI6MjA4MDA1NjkyMn0.nTkVps1TbaG-rm9Ohksv8RicNEhBNjyGbUdGXMwBm0c',
     serviceRoleKey:
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4eWN5cnNnempscGhvaHFqcHNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mzc0NTg1NywiZXhwIjoyMDc5MzIxODU3fQ.THaX_Uk6_OLcBgVFDI4We8qpIAzhJh7598LADMzu6V4'
   },
