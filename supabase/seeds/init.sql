@@ -67,6 +67,7 @@ CREATE TABLE accounts (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255),
   avatar_url TEXT,
+  avatar TEXT,
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -911,13 +912,26 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_account_id UUID;
 BEGIN
-  -- Only add member if created_by is provided
   IF NEW.created_by IS NOT NULL THEN
-    INSERT INTO public.organization_members (organization_id, account_id, role)
-    VALUES (NEW.id, NEW.created_by, 'owner')
-    ON CONFLICT (organization_id, account_id) DO NOTHING;
+    -- Try to treat created_by as a direct accounts.id first
+    SELECT id INTO v_account_id FROM public.accounts WHERE id = NEW.created_by LIMIT 1;
+
+    -- If not found, try interpreting created_by as auth_user_id
+    IF v_account_id IS NULL THEN
+      SELECT id INTO v_account_id FROM public.accounts WHERE auth_user_id = NEW.created_by LIMIT 1;
+    END IF;
+
+    -- Only insert if we resolved an accounts.id
+    IF v_account_id IS NOT NULL THEN
+      INSERT INTO public.organization_members (organization_id, account_id, role)
+      VALUES (NEW.id, v_account_id, 'owner')
+      ON CONFLICT (organization_id, account_id) DO NOTHING;
+    END IF;
   END IF;
+
   RETURN NEW;
 END;
 $$;
