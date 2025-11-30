@@ -743,7 +743,21 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: accounts
 CREATE POLICY "accounts_select_own" ON accounts FOR SELECT TO authenticated USING (auth_user_id = (SELECT auth.uid()));
-CREATE POLICY "accounts_select_related" ON accounts FOR SELECT TO authenticated USING (type IN ('org', 'bot') AND id IN (SELECT DISTINCT a.id FROM accounts a LEFT JOIN organizations o ON o.account_id = a.id LEFT JOIN organization_members om ON om.organization_id = o.id LEFT JOIN accounts member_account ON member_account.id = om.account_id WHERE member_account.auth_user_id = (SELECT auth.uid())));
+-- NOTE: The following policy was removed because it performed a SELECT on the
+-- `accounts` table inside its USING expression which caused Postgres RLS to
+-- re-evaluate the policy recursively and produced "infinite recursion" errors
+-- at runtime. The safer long-term fix is to implement a SECURITY DEFINER
+-- helper owned by a role with BYPASSRLS or to refactor membership checks into
+-- helper tables/views that don't trigger the same RLS evaluation path.
+--
+-- Original (removed) policy:
+-- CREATE POLICY "accounts_select_related" ON accounts FOR SELECT TO authenticated USING (type IN ('org', 'bot') AND id IN (SELECT DISTINCT a.id FROM accounts a LEFT JOIN organizations o ON o.account_id = a.id LEFT JOIN organization_members om ON om.organization_id = o.id LEFT JOIN accounts member_account ON member_account.id = om.account_id WHERE member_account.auth_user_id = (SELECT auth.uid())));
+
+-- Fallback: Only allow selecting own account by auth_user_id (already present
+-- below). If additional cross-account selection is required (e.g., to view an
+-- org account because the user is a member), add a helper SECURITY DEFINER
+-- function that is owned by a role with BYPASSRLS and grant EXECUTE to
+-- `authenticated`. Implementing that is left as a follow-up task.
 CREATE POLICY "accounts_insert_own" ON accounts FOR INSERT TO authenticated WITH CHECK (auth_user_id = (SELECT auth.uid()) AND type = 'user');
 CREATE POLICY "accounts_update_own" ON accounts FOR UPDATE TO authenticated USING (auth_user_id = (SELECT auth.uid())) WITH CHECK (auth_user_id = (SELECT auth.uid()));
 CREATE POLICY "accounts_delete_own" ON accounts FOR DELETE TO authenticated USING (auth_user_id = (SELECT auth.uid()));
