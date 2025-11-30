@@ -2,7 +2,7 @@
 然後建立組織也是失敗出現infinite recursion detected in policy for relation "accounts"
 chunk-5DDHASPA.js:68 
  
- GET https://bliuahijoulbweobzkbp.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
+ GET https://nvxhnmkmwekuhzhprfqo.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
 base.repository.ts:160 
  Error in findOne for accounts: 
 {code: '42P17', details: null, hint: null, message: 'infinite recursion detected in policy for relation "accounts"'}
@@ -1584,7 +1584,7 @@ resolvePromise @ zone.js:2461
 (匿名) @ zone.js:2385
 (匿名) @ router2.mjs:4677
 auth-context.service.ts:303 [AuthContextService] 🔐 Current session check: {hasSession: true, userId: '89a84dff-b645-4084-8a8e-0db777bcf763', initialized: true}
-chunk-5DDHASPA.js:68   GET https://bliuahijoulbweobzkbp.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
+chunk-5DDHASPA.js:68   GET https://nvxhnmkmwekuhzhprfqo.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
 (匿名) @ zone.js:2788
 proto.<computed> @ zone.js:1038
 (匿名) @ fetch.js:5
@@ -1658,7 +1658,7 @@ __async @ chunk-5DDHASPA.js:65
 ZoneAwarePromise @ zone.js:2701
 __async @ chunk-5DDHASPA.js:65
 (匿名) @ locks.js:120
-chunk-5DDHASPA.js:68   GET https://bliuahijoulbweobzkbp.supabase.co/rest/v1/organization_members?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&role=eq.owner 400 (Bad Request)
+chunk-5DDHASPA.js:68   GET https://nvxhnmkmwekuhzhprfqo.supabase.co/rest/v1/organization_members?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&role=eq.owner 400 (Bad Request)
 (匿名) @ zone.js:2788
 proto.<computed> @ zone.js:1038
 (匿名) @ fetch.js:5
@@ -2234,7 +2234,7 @@ __async @ chunk-5DDHASPA.js:65
 ZoneAwarePromise @ zone.js:2701
 __async @ chunk-5DDHASPA.js:65
 (匿名) @ locks.js:120
-chunk-5DDHASPA.js:68   GET https://bliuahijoulbweobzkbp.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
+chunk-5DDHASPA.js:68   GET https://nvxhnmkmwekuhzhprfqo.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
 (匿名) @ zone.js:2788
 proto.<computed> @ zone.js:1038
 (匿名) @ fetch.js:5
@@ -2682,7 +2682,7 @@ __async @ chunk-5DDHASPA.js:65
 ZoneAwarePromise @ zone.js:2701
 __async @ chunk-5DDHASPA.js:65
 (匿名) @ locks.js:120
-chunk-5DDHASPA.js:68   GET https://bliuahijoulbweobzkbp.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
+chunk-5DDHASPA.js:68   GET https://nvxhnmkmwekuhzhprfqo.supabase.co/rest/v1/accounts?select=*&auth_user_id=eq.89a84dff-b645-4084-8a8e-0db777bcf763&type=eq.user 500 (Internal Server Error)
 (匿名) @ zone.js:2788
 proto.<computed> @ zone.js:1038
 (匿名) @ fetch.js:5
