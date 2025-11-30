@@ -67,7 +67,7 @@ export class UserService {
     const insertData = {
       name: request.name,
       email: request.email || null,
-      avatar: request.avatar || null,
+      avatar_url: request.avatar || null, // Use avatar_url (existing column) instead of avatar (new column not in cache yet)
       status: request.status || AccountStatus.ACTIVE
     };
 
