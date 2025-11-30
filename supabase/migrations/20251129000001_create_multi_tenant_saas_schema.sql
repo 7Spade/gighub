@@ -471,14 +471,14 @@ $$;
 
 -- Function: Get user's role in organization
 CREATE OR REPLACE FUNCTION private.get_organization_role(p_org_id UUID)
-RETURNS organization_role
+RETURNS public.organization_role
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 STABLE
 AS $$
 DECLARE
-  v_role organization_role;
+  v_role public.organization_role;
 BEGIN
   SELECT om.role INTO v_role
   FROM public.organization_members om
