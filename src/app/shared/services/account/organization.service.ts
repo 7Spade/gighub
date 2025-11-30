@@ -100,12 +100,29 @@ export class OrganizationService {
   }
 
   /**
+   * 生成 slug 從名稱
+   * Generate slug from name
+   *
+   * Converts name to lowercase, replaces spaces with hyphens, removes special chars
+   */
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/[^\w\u4e00-\u9fff-]/g, '') // Allow word chars, Chinese chars, and hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+  }
+
+  /**
    * 創建組織
    * Create organization
    *
-   * Creates a new organization account. The database trigger `add_creator_as_org_owner`
-   * automatically adds the creator as an owner in the organization_members table after
-   * the INSERT operation completes. This ensures atomic membership creation without the
+   * Creates a new organization account and organizations table record.
+   * The database trigger `handle_new_organization` automatically adds the creator
+   * as an owner in the organization_members table after the organizations INSERT
+   * operation completes. This ensures atomic membership creation without the
    * need for manual application-level coordination.
    *
    * @param {CreateOrganizationRequest} request - Create request
@@ -113,37 +130,41 @@ export class OrganizationService {
    * @throws {Error} If user is not authenticated, user account not found, or creation fails
    */
   async createOrganization(request: CreateOrganizationRequest): Promise<OrganizationBusinessModel> {
-    // 1. 獲取當前用戶的 auth_user_id
-    const user = await this.supabaseService.getUser();
-    if (!user || !user.id) {
-      throw new Error('User not authenticated');
+    const client = this.supabaseService.getClient();
+
+    // Use SECURITY DEFINER function to create organization atomically
+    // This bypasses RLS policies and ensures transactional integrity
+    // The function handles: account creation, organization creation, and member assignment
+    const { data, error } = await (client as any).rpc('create_organization', {
+      p_name: request.name,
+      p_email: request.email || null,
+      p_avatar_url: request.avatar || null,
+      p_slug: null // Let the function generate slug
+    });
+
+    if (error) {
+      console.error('[OrganizationService] Failed to create organization:', error);
+      throw error;
     }
 
-    // 2. 驗證用戶帳號存在（防止創建無主組織）
-    // Verify user account exists (prevents creating ownerless organizations)
-    const userAccount = await firstValueFrom(this.userRepo.findByAuthUserId(user.id));
-    if (!userAccount) {
-      throw new Error('User account not found');
+    if (!data || !data[0]) {
+      throw new Error('Failed to create organization');
     }
 
-    // 3. 創建組織（觸發器會自動將創建者添加為 owner）
-    // Create organization (trigger will automatically add creator as owner)
-    // auth_user_id: Set to creator's auth.uid() to satisfy SELECT policy after INSERT
-    const insertData = {
-      name: request.name,
-      email: request.email || null,
-      avatar: request.avatar || null,
-      status: request.status || AccountStatus.ACTIVE,
-      auth_user_id: user.id // Required for SELECT policy to return newly created org
-    };
+    const { account_id, organization_id } = data[0];
 
-    const organization = await firstValueFrom(this.organizationRepo.create(insertData));
+    // Fetch the created organization account
+    const { data: accountData, error: fetchError } = await client
+      .from('accounts')
+      .select('*')
+      .eq('id', account_id)
+      .single();
 
-    // Note: The database trigger `add_creator_as_org_owner` automatically creates
-    // an organization_members record with role='owner' for the creator.
-    // No manual membership creation needed here.
+    if (fetchError || !accountData) {
+      throw new Error('Failed to fetch created organization account');
+    }
 
-    return organization as OrganizationBusinessModel;
+    return accountData as OrganizationBusinessModel;
   }
 
   /**

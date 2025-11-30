@@ -12,6 +12,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { SupabaseService } from '@core';
 import { BlueprintModel, CreateBlueprintRequest, UpdateBlueprintRequest, BlueprintStatistics, BlueprintStatusEnum } from '../../domain';
 import { BlueprintRepository } from '../repositories';
 
@@ -23,6 +24,7 @@ import { BlueprintRepository } from '../repositories';
 @Injectable({ providedIn: 'root' })
 export class BlueprintService {
   private readonly blueprintRepo = inject(BlueprintRepository);
+  private readonly supabaseService = inject(SupabaseService);
 
   // State management with Signals
   private blueprintsState = signal<BlueprintModel[]>([]);
@@ -117,19 +119,36 @@ export class BlueprintService {
     this.errorState.set(null);
 
     try {
-      // Generate slug from name if not provided
-      const slug = request.slug ?? this.generateSlug(request.name);
+      // Use SECURITY DEFINER function to create blueprint atomically
+      // This bypasses RLS policies and ensures proper permission checks
+      const client = this.supabaseService.getClient();
+      
+      const { data, error } = await (client as any).rpc('create_blueprint', {
+        p_owner_id: request.ownerId,
+        p_name: request.name,
+        p_slug: request.slug || null,
+        p_description: request.description || null,
+        p_cover_url: null,
+        p_is_public: request.isPublic ?? false,
+        p_enabled_modules: request.enabledModules ?? ['tasks']
+      });
 
-      const blueprintInsert = {
-        name: request.name,
-        slug,
-        description: request.description,
-        ownerId: request.ownerId,
-        isPublic: request.isPublic ?? false,
-        enabledModules: request.enabledModules ?? ['tasks']
-      };
+      if (error) {
+        console.error('[BlueprintService] Failed to create blueprint:', error);
+        throw error;
+      }
 
-      const newBlueprint = await firstValueFrom(this.blueprintRepo.create(blueprintInsert));
+      if (!data || !data[0]) {
+        throw new Error('Failed to create blueprint');
+      }
+
+      const { blueprint_id } = data[0];
+
+      // Fetch the created blueprint
+      const newBlueprint = await firstValueFrom(this.blueprintRepo.findById(blueprint_id));
+      if (!newBlueprint) {
+        throw new Error('Failed to fetch created blueprint');
+      }
 
       // Update state
       this.blueprintsState.update(blueprints => [...blueprints, newBlueprint]);

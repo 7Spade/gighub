@@ -61,24 +61,31 @@ CREATE SCHEMA IF NOT EXISTS private;
 -- Purpose: 認證與身分識別，依 type 區分權限邏輯
 CREATE TABLE accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_user_id UUID UNIQUE,
+  auth_user_id UUID,
   type account_type NOT NULL DEFAULT 'user',
   status account_status NOT NULL DEFAULT 'active',
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255),
   avatar_url TEXT,
+  avatar TEXT,
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at TIMESTAMPTZ,
   
-  CONSTRAINT accounts_email_unique UNIQUE (email),
-  CONSTRAINT accounts_auth_user_id_unique UNIQUE (auth_user_id)
+  CONSTRAINT accounts_email_unique UNIQUE (email)
 );
 
 CREATE INDEX idx_accounts_type ON accounts(type);
 CREATE INDEX idx_accounts_status ON accounts(status);
 CREATE INDEX idx_accounts_auth_user_id ON accounts(auth_user_id);
+
+-- Partial unique index: Only enforces uniqueness of auth_user_id for user accounts.
+-- Organization accounts can share the same auth_user_id (set to creator's auth.uid() for RLS)
+-- but user accounts must have unique auth_user_id values.
+CREATE UNIQUE INDEX accounts_auth_user_id_unique_user_only 
+ON accounts (auth_user_id) 
+WHERE type = 'user' AND auth_user_id IS NOT NULL;
 
 -- Table: organizations (組織)
 CREATE TABLE organizations (
@@ -471,14 +478,14 @@ $$;
 
 -- Function: Get user's role in organization
 CREATE OR REPLACE FUNCTION private.get_organization_role(p_org_id UUID)
-RETURNS organization_role
+RETURNS public.organization_role
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 STABLE
 AS $$
 DECLARE
-  v_role organization_role;
+  v_role public.organization_role;
 BEGIN
   SELECT om.role INTO v_role
   FROM public.organization_members om
@@ -743,8 +750,24 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: accounts
 CREATE POLICY "accounts_select_own" ON accounts FOR SELECT TO authenticated USING (auth_user_id = (SELECT auth.uid()));
-CREATE POLICY "accounts_select_related" ON accounts FOR SELECT TO authenticated USING (type IN ('org', 'bot') AND id IN (SELECT DISTINCT a.id FROM accounts a LEFT JOIN organizations o ON o.account_id = a.id LEFT JOIN organization_members om ON om.organization_id = o.id LEFT JOIN accounts member_account ON member_account.id = om.account_id WHERE member_account.auth_user_id = (SELECT auth.uid())));
+-- NOTE: The following policy was removed because it performed a SELECT on the
+-- `accounts` table inside its USING expression which caused Postgres RLS to
+-- re-evaluate the policy recursively and produced "infinite recursion" errors
+-- at runtime. The safer long-term fix is to implement a SECURITY DEFINER
+-- helper owned by a role with BYPASSRLS or to refactor membership checks into
+-- helper tables/views that don't trigger the same RLS evaluation path.
+--
+-- Original (removed) policy:
+-- CREATE POLICY "accounts_select_related" ON accounts FOR SELECT TO authenticated USING (type IN ('org', 'bot') AND id IN (SELECT DISTINCT a.id FROM accounts a LEFT JOIN organizations o ON o.account_id = a.id LEFT JOIN organization_members om ON om.organization_id = o.id LEFT JOIN accounts member_account ON member_account.id = om.account_id WHERE member_account.auth_user_id = (SELECT auth.uid())));
+
+-- Fallback: Only allow selecting own account by auth_user_id (already present
+-- below). If additional cross-account selection is required (e.g., to view an
+-- org account because the user is a member), add a helper SECURITY DEFINER
+-- function that is owned by a role with BYPASSRLS and grant EXECUTE to
+-- `authenticated`. Implementing that is left as a follow-up task.
 CREATE POLICY "accounts_insert_own" ON accounts FOR INSERT TO authenticated WITH CHECK (auth_user_id = (SELECT auth.uid()) AND type = 'user');
+-- Note: Organization accounts are created via SECURITY DEFINER function create_organization()
+-- which bypasses RLS. This ensures atomic creation and allows auth_user_id = NULL for org accounts.
 CREATE POLICY "accounts_update_own" ON accounts FOR UPDATE TO authenticated USING (auth_user_id = (SELECT auth.uid())) WITH CHECK (auth_user_id = (SELECT auth.uid()));
 CREATE POLICY "accounts_delete_own" ON accounts FOR DELETE TO authenticated USING (auth_user_id = (SELECT auth.uid()));
 
@@ -762,7 +785,8 @@ CREATE POLICY "organization_members_delete" ON organization_members FOR DELETE T
 
 -- RLS Policies: teams
 CREATE POLICY "teams_select" ON teams FOR SELECT TO authenticated USING ((SELECT private.is_organization_member(organization_id)));
-CREATE POLICY "teams_insert" ON teams FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_organization_admin(organization_id)));
+-- Note: Teams are created via SECURITY DEFINER function create_team()
+-- which bypasses RLS and ensures proper permission checks.
 CREATE POLICY "teams_update" ON teams FOR UPDATE TO authenticated USING ((SELECT private.is_organization_admin(organization_id)) OR (SELECT private.is_team_leader(id))) WITH CHECK ((SELECT private.is_organization_admin(organization_id)) OR (SELECT private.is_team_leader(id)));
 CREATE POLICY "teams_delete" ON teams FOR DELETE TO authenticated USING ((SELECT private.is_organization_admin(organization_id)));
 
@@ -775,7 +799,8 @@ CREATE POLICY "team_members_delete" ON team_members FOR DELETE TO authenticated 
 -- RLS Policies: blueprints
 CREATE POLICY "blueprints_select" ON blueprints FOR SELECT TO authenticated USING ((SELECT private.has_blueprint_access(id)));
 CREATE POLICY "blueprints_select_public" ON blueprints FOR SELECT TO anon USING (is_public = true AND status = 'active');
-CREATE POLICY "blueprints_insert" ON blueprints FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_account_owner(owner_id)) OR EXISTS (SELECT 1 FROM organizations o JOIN organization_members om ON om.organization_id = o.id JOIN accounts a ON a.id = om.account_id WHERE o.account_id = blueprints.owner_id AND a.auth_user_id = (SELECT auth.uid()) AND om.role IN ('owner', 'admin')));
+-- Note: Blueprints are created via SECURITY DEFINER function create_blueprint()
+-- which bypasses RLS and ensures proper permission checks.
 CREATE POLICY "blueprints_update" ON blueprints FOR UPDATE TO authenticated USING ((SELECT private.is_blueprint_owner(id))) WITH CHECK ((SELECT private.is_blueprint_owner(id)));
 CREATE POLICY "blueprints_delete" ON blueprints FOR DELETE TO authenticated USING ((SELECT private.is_blueprint_owner(id)));
 
@@ -883,6 +908,114 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   EXECUTE FUNCTION public.handle_new_user();
 
 -- ============================================================================
+-- CREATE ORGANIZATION FUNCTION (SECURITY DEFINER)
+-- Creates an organization account and organization record in a single transaction.
+-- This function bypasses RLS policies to ensure atomic creation.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.create_organization(
+  p_name VARCHAR(255),
+  p_email VARCHAR(255) DEFAULT NULL,
+  p_avatar_url TEXT DEFAULT NULL,
+  p_slug VARCHAR(100) DEFAULT NULL
+)
+RETURNS TABLE (
+  account_id UUID,
+  organization_id UUID
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_user_account_id UUID;
+  v_org_account_id UUID;
+  v_organization_id UUID;
+  v_slug VARCHAR(100);
+  v_auth_user_id UUID;
+BEGIN
+  -- 1. Get current user's auth_user_id
+  v_auth_user_id := auth.uid();
+  IF v_auth_user_id IS NULL THEN
+    RAISE EXCEPTION 'User not authenticated';
+  END IF;
+
+  -- 2. Get user's account_id
+  SELECT id INTO v_user_account_id
+  FROM public.accounts
+  WHERE auth_user_id = v_auth_user_id
+    AND type = 'user'
+    AND status != 'deleted'
+  LIMIT 1;
+
+  IF v_user_account_id IS NULL THEN
+    RAISE EXCEPTION 'User account not found';
+  END IF;
+
+  -- 3. Generate slug if not provided
+  IF p_slug IS NULL OR p_slug = '' THEN
+    v_slug := lower(regexp_replace(p_name, '[^a-zA-Z0-9]+', '-', 'g'));
+    v_slug := trim(both '-' from v_slug);
+    -- Ensure slug is unique
+    WHILE EXISTS (SELECT 1 FROM public.organizations WHERE slug = v_slug) LOOP
+      v_slug := v_slug || '-' || substr(gen_random_uuid()::text, 1, 8);
+    END LOOP;
+  ELSE
+    v_slug := p_slug;
+  END IF;
+
+  -- 4. Create organization account (auth_user_id = NULL for org accounts)
+  INSERT INTO public.accounts (
+    auth_user_id,
+    type,
+    name,
+    email,
+    avatar_url,
+    status
+  )
+  VALUES (
+    NULL,  -- Organization accounts don't need auth_user_id
+    'org',
+    p_name,
+    p_email,
+    p_avatar_url,
+    'active'
+  )
+  RETURNING id INTO v_org_account_id;
+
+  -- 5. Create organization record
+  INSERT INTO public.organizations (
+    account_id,
+    name,
+    slug,
+    description,
+    logo_url,
+    created_by
+  )
+  VALUES (
+    v_org_account_id,
+    p_name,
+    v_slug,
+    NULL,
+    p_avatar_url,
+    v_user_account_id
+  )
+  RETURNING id INTO v_organization_id;
+
+  -- 6. Add creator as owner (trigger will handle this, but we do it explicitly for clarity)
+  INSERT INTO public.organization_members (organization_id, account_id, role)
+  VALUES (v_organization_id, v_user_account_id, 'owner')
+  ON CONFLICT (organization_id, account_id) DO NOTHING;
+
+  -- 7. Return created IDs
+  RETURN QUERY SELECT v_org_account_id, v_organization_id;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.create_organization(VARCHAR, VARCHAR, TEXT, VARCHAR) TO authenticated;
+
+-- ============================================================================
 -- AUTO-ADD ORGANIZATION CREATOR AS OWNER MEMBER
 -- When an organization is created, automatically add the creator (created_by)
 -- to organization_members with role = 'owner'
@@ -894,13 +1027,26 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_account_id UUID;
 BEGIN
-  -- Only add member if created_by is provided
   IF NEW.created_by IS NOT NULL THEN
-    INSERT INTO public.organization_members (organization_id, account_id, role)
-    VALUES (NEW.id, NEW.created_by, 'owner')
-    ON CONFLICT (organization_id, account_id) DO NOTHING;
+    -- Try to treat created_by as a direct accounts.id first
+    SELECT id INTO v_account_id FROM public.accounts WHERE id = NEW.created_by LIMIT 1;
+
+    -- If not found, try interpreting created_by as auth_user_id
+    IF v_account_id IS NULL THEN
+      SELECT id INTO v_account_id FROM public.accounts WHERE auth_user_id = NEW.created_by LIMIT 1;
+    END IF;
+
+    -- Only insert if we resolved an accounts.id
+    IF v_account_id IS NOT NULL THEN
+      INSERT INTO public.organization_members (organization_id, account_id, role)
+      VALUES (NEW.id, v_account_id, 'owner')
+      ON CONFLICT (organization_id, account_id) DO NOTHING;
+    END IF;
   END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -909,6 +1055,235 @@ CREATE OR REPLACE TRIGGER on_organization_created
   AFTER INSERT ON organizations
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_organization();
+
+-- ============================================================================
+-- CREATE TEAM FUNCTION (SECURITY DEFINER)
+-- Creates a team in an organization with proper permission checks.
+-- This function bypasses RLS policies to ensure atomic creation.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.create_team(
+  p_organization_id UUID,
+  p_name VARCHAR(255),
+  p_description TEXT DEFAULT NULL,
+  p_metadata JSONB DEFAULT '{}'::jsonb
+)
+RETURNS TABLE (
+  team_id UUID
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_user_account_id UUID;
+  v_team_id UUID;
+  v_auth_user_id UUID;
+BEGIN
+  -- 1. Get current user's auth_user_id
+  v_auth_user_id := auth.uid();
+  IF v_auth_user_id IS NULL THEN
+    RAISE EXCEPTION 'User not authenticated';
+  END IF;
+
+  -- 2. Get user's account_id
+  SELECT id INTO v_user_account_id
+  FROM public.accounts
+  WHERE auth_user_id = v_auth_user_id
+    AND type = 'user'
+    AND status != 'deleted'
+  LIMIT 1;
+
+  IF v_user_account_id IS NULL THEN
+    RAISE EXCEPTION 'User account not found';
+  END IF;
+
+  -- 3. Verify user is organization admin/owner
+  IF NOT EXISTS (
+    SELECT 1 FROM public.organization_members om
+    JOIN public.accounts a ON a.id = om.account_id
+    WHERE om.organization_id = p_organization_id
+    AND a.auth_user_id = v_auth_user_id
+    AND om.role IN ('owner', 'admin')
+  ) THEN
+    RAISE EXCEPTION 'User is not an admin or owner of the organization';
+  END IF;
+
+  -- 4. Check if team name already exists in organization
+  IF EXISTS (
+    SELECT 1 FROM public.teams
+    WHERE organization_id = p_organization_id
+    AND name = p_name
+    AND deleted_at IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Team name already exists in this organization';
+  END IF;
+
+  -- 5. Create team
+  INSERT INTO public.teams (
+    organization_id,
+    name,
+    description,
+    metadata
+  )
+  VALUES (
+    p_organization_id,
+    p_name,
+    p_description,
+    p_metadata
+  )
+  RETURNING id INTO v_team_id;
+
+  -- 6. Return created team ID
+  RETURN QUERY SELECT v_team_id;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.create_team(UUID, VARCHAR, TEXT, JSONB) TO authenticated;
+
+-- ============================================================================
+-- CREATE BLUEPRINT FUNCTION (SECURITY DEFINER)
+-- Creates a blueprint (workspace) with proper permission checks.
+-- This function bypasses RLS policies to ensure atomic creation.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.create_blueprint(
+  p_owner_id UUID,
+  p_name VARCHAR(255),
+  p_slug VARCHAR(100) DEFAULT NULL,
+  p_description TEXT DEFAULT NULL,
+  p_cover_url TEXT DEFAULT NULL,
+  p_is_public BOOLEAN DEFAULT false,
+  p_enabled_modules module_type[] DEFAULT ARRAY['tasks']::module_type[]
+)
+RETURNS TABLE (
+  blueprint_id UUID
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_user_account_id UUID;
+  v_blueprint_id UUID;
+  v_slug VARCHAR(100);
+  v_auth_user_id UUID;
+  v_owner_type public.account_type;
+BEGIN
+  -- 1. Get current user's auth_user_id
+  v_auth_user_id := auth.uid();
+  IF v_auth_user_id IS NULL THEN
+    RAISE EXCEPTION 'User not authenticated';
+  END IF;
+
+  -- 2. Get user's account_id
+  SELECT id INTO v_user_account_id
+  FROM public.accounts
+  WHERE auth_user_id = v_auth_user_id
+    AND type = 'user'
+    AND status != 'deleted'
+  LIMIT 1;
+
+  IF v_user_account_id IS NULL THEN
+    RAISE EXCEPTION 'User account not found';
+  END IF;
+
+  -- 3. Get owner account type and verify permissions
+  SELECT type INTO v_owner_type
+  FROM public.accounts
+  WHERE id = p_owner_id
+    AND status != 'deleted';
+
+  IF v_owner_type IS NULL THEN
+    RAISE EXCEPTION 'Owner account not found';
+  END IF;
+
+  -- 4. Verify user has permission to create blueprint for owner
+  IF v_owner_type = 'user' THEN
+    -- For user accounts, owner must be the current user
+    IF p_owner_id != v_user_account_id THEN
+      RAISE EXCEPTION 'User can only create blueprints for their own account';
+    END IF;
+  ELSIF v_owner_type = 'org' THEN
+    -- For organization accounts, user must be admin/owner
+    IF NOT EXISTS (
+      SELECT 1 FROM public.organizations o
+      JOIN public.organization_members om ON om.organization_id = o.id
+      JOIN public.accounts a ON a.id = om.account_id
+      WHERE o.account_id = p_owner_id
+      AND a.auth_user_id = v_auth_user_id
+      AND om.role IN ('owner', 'admin')
+    ) THEN
+      RAISE EXCEPTION 'User is not an admin or owner of the organization';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Invalid owner account type';
+  END IF;
+
+  -- 5. Generate slug if not provided
+  IF p_slug IS NULL OR p_slug = '' THEN
+    v_slug := lower(regexp_replace(p_name, '[^a-zA-Z0-9]+', '-', 'g'));
+    v_slug := trim(both '-' from v_slug);
+    -- Ensure slug is unique for the owner
+    WHILE EXISTS (
+      SELECT 1 FROM public.blueprints
+      WHERE owner_id = p_owner_id
+      AND slug = v_slug
+      AND deleted_at IS NULL
+    ) LOOP
+      v_slug := v_slug || '-' || substr(gen_random_uuid()::text, 1, 8);
+    END LOOP;
+  ELSE
+    v_slug := p_slug;
+    -- Check if slug already exists for owner
+    IF EXISTS (
+      SELECT 1 FROM public.blueprints
+      WHERE owner_id = p_owner_id
+      AND slug = v_slug
+      AND deleted_at IS NULL
+    ) THEN
+      RAISE EXCEPTION 'Blueprint slug already exists for this owner';
+    END IF;
+  END IF;
+
+  -- 6. Create blueprint
+  INSERT INTO public.blueprints (
+    owner_id,
+    name,
+    slug,
+    description,
+    cover_url,
+    is_public,
+    status,
+    enabled_modules,
+    created_by
+  )
+  VALUES (
+    p_owner_id,
+    p_name,
+    v_slug,
+    p_description,
+    p_cover_url,
+    p_is_public,
+    'active',
+    p_enabled_modules,
+    v_user_account_id
+  )
+  RETURNING id INTO v_blueprint_id;
+
+  -- 7. Add creator as maintainer (trigger will also handle this, but we do it explicitly)
+  INSERT INTO public.blueprint_members (blueprint_id, account_id, role, is_external)
+  VALUES (v_blueprint_id, v_user_account_id, 'maintainer', false)
+  ON CONFLICT (blueprint_id, account_id) DO NOTHING;
+
+  -- 8. Return created blueprint ID
+  RETURN QUERY SELECT v_blueprint_id;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.create_blueprint(UUID, VARCHAR, VARCHAR, TEXT, TEXT, BOOLEAN, module_type[]) TO authenticated;
 
 -- ============================================================================
 -- AUTO-ADD BLUEPRINT CREATOR AS MAINTAINER MEMBER

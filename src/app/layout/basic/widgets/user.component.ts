@@ -76,18 +76,18 @@ export class HeaderUserComponent {
         // 組織上下文：顯示組織信息
         const org = this.authContext.getOrganizationById(contextId || '');
         return {
-          name: contextLabel || (org?.['name'] as string) || '組織',
+          name: contextLabel || (org?.name as string) || '組織',
           email: '',
-          avatar: (org?.['avatar'] as string) || './assets/tmp/img/avatar.jpg'
+          avatar: org?.avatar_url || './assets/tmp/img/avatar.jpg'
         };
 
       case ContextType.TEAM:
         // 團隊上下文：顯示團隊信息
         const team = this.authContext.getTeamById(contextId || '');
         return {
-          name: contextLabel || (team?.['name'] as string) || '團隊',
+          name: contextLabel || (team?.name as string) || '團隊',
           email: '',
-          avatar: (team?.['avatar'] as string) || './assets/tmp/img/avatar.jpg'
+          avatar: './assets/tmp/img/avatar.jpg'
         };
 
       case ContextType.BOT:

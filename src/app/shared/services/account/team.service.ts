@@ -65,14 +65,35 @@ export class TeamService {
    * @returns {Promise<TeamBusinessModel>} Created team
    */
   async createTeam(request: CreateTeamRequest): Promise<TeamBusinessModel> {
-    const insertData = {
-      organization_id: request.organizationId, // snake_case for database
-      name: request.name,
-      description: request.description || null,
-      avatar: request.avatar || null
-    };
+    const client = this.supabaseService.getClient();
 
-    return firstValueFrom(this.teamRepo.create(insertData as any)) as Promise<TeamBusinessModel>;
+    // Use SECURITY DEFINER function to create team atomically
+    // This bypasses RLS policies and ensures proper permission checks
+    const { data, error } = await (client as any).rpc('create_team', {
+      p_organization_id: request.organizationId,
+      p_name: request.name,
+      p_description: request.description || null,
+      p_metadata: request.avatar ? { avatar: request.avatar } : {}
+    });
+
+    if (error) {
+      console.error('[TeamService] Failed to create team:', error);
+      throw error;
+    }
+
+    if (!data || !data[0]) {
+      throw new Error('Failed to create team');
+    }
+
+    const { team_id } = data[0];
+
+    // Fetch the created team
+    const team = await firstValueFrom(this.teamRepo.findById(team_id));
+    if (!team) {
+      throw new Error('Failed to fetch created team');
+    }
+
+    return team as TeamBusinessModel;
   }
 
   /**
