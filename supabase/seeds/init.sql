@@ -61,7 +61,7 @@ CREATE SCHEMA IF NOT EXISTS private;
 -- Purpose: 認證與身分識別，依 type 區分權限邏輯
 CREATE TABLE accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_user_id UUID UNIQUE,
+  auth_user_id UUID,
   type account_type NOT NULL DEFAULT 'user',
   status account_status NOT NULL DEFAULT 'active',
   name VARCHAR(255) NOT NULL,
@@ -73,13 +73,19 @@ CREATE TABLE accounts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at TIMESTAMPTZ,
   
-  CONSTRAINT accounts_email_unique UNIQUE (email),
-  CONSTRAINT accounts_auth_user_id_unique UNIQUE (auth_user_id)
+  CONSTRAINT accounts_email_unique UNIQUE (email)
 );
 
 CREATE INDEX idx_accounts_type ON accounts(type);
 CREATE INDEX idx_accounts_status ON accounts(status);
 CREATE INDEX idx_accounts_auth_user_id ON accounts(auth_user_id);
+
+-- Partial unique index: Only enforces uniqueness of auth_user_id for user accounts.
+-- Organization accounts can share the same auth_user_id (set to creator's auth.uid() for RLS)
+-- but user accounts must have unique auth_user_id values.
+CREATE UNIQUE INDEX accounts_auth_user_id_unique_user_only 
+ON accounts (auth_user_id) 
+WHERE type = 'user' AND auth_user_id IS NOT NULL;
 
 -- Table: organizations (組織)
 CREATE TABLE organizations (
